@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+          name="viewport">
+    <meta content="ie=edge" http-equiv="X-UA-Compatible">
+    <title>sketch: 1</title>
+    
+    <style type="text/css">
+        #js-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #js-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div id="js-wrapper">
+    <canvas id="js-canvas"></canvas>
+</div>
+
+<script src="https://unpkg.com/three@0.142.0/build/three.min.js"></script>
+
+<script>
+// -----------------------------------------------------------------------------
+// ref:
+// https://threejs.org/examples/webgl2_multiple_rendertargets.html
+// -----------------------------------------------------------------------------
+
+    const gbufferVertexShaderText = `
+in vec3 position;
+in vec3 normal;
+in vec2 uv;
+out vec3 vNormal;
+out vec2 vUv;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform mat3 normalMatrix;
+void main() {
+    vUv = uv;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.);
+    vec3 transformedNormal = normalMatrix * normal;
+    vNormal = normalize(transformedNormal);
+    gl_Position = projectionMatrix * mvPosition;
+}
+`;
+    const gbufferFragmentShaderText = `
+precision highp float;
+precision highp int;
+layout(location = 0) out vec4 gColor;
+layout(location = 1) out vec4 gNormal;
+in vec3 vNormal;
+in vec2 vUv;
+void main() {
+    gColor = vec4(1, 0, 0, 1);
+    gNormal = vec4(normalize(vNormal), 0.);
+}
+`;
+    const renderVertexShaderText = `
+in vec3 position;
+in vec2 uv;
+out vec2 vUv;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+}
+`;
+    const renderFragmentShaderText = `
+precision highp float;
+precision highp int;
+
+layout(location = 0) out vec4 pc_FragColor;
+
+in vec2 vUv;
+
+uniform sampler2D tDiffuse;
+uniform sampler2D tNormal;
+
+void main() {
+    vec3 diffuse = texture(tDiffuse, vUv).rgb;
+    vec3 normal = texture(tNormal, vUv).rgb;
+    pc_FragColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
+    pc_FragColor.a = 1.;
+}
+`;
+    const wrapperElement = document.getElementById("js-wrapper");
+    const canvasElement = document.getElementById("js-canvas");
+
+    const ratio = Math.min(window.devicePixelRatio, 1.5);
+
+    const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
+    renderer.setPixelRatio(ratio);
+    
+    const renderTarget = new THREE.WebGLMultipleRenderTargets(1, 1, 2);
+    renderTarget.texture.forEach(texture => {
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+    });
+    renderTarget.texture[0].name = "diffuse";
+    renderTarget.texture[1].name = "normal";
+    
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    const sceneCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 10);
+    
+    let width, height;
+    
+    const mesh = new THREE.Mesh(
+        // new THREE.BoxGeometry(1, 1, 1),
+        new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
+        new THREE.RawShaderMaterial({
+            vertexShader: gbufferVertexShaderText,
+            fragmentShader: gbufferFragmentShaderText,
+            uniforms: {},
+            glslVersion: THREE.GLSL3
+        })
+    );
+    
+    scene.add(mesh);
+    
+    sceneCamera.position.copy(new THREE.Vector3(0, 0, 5))
+    sceneCamera.lookAt(mesh.position);
+    
+    const postprocessScene = new THREE.Scene();
+    const postprocessCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    
+    const postprocessPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(2, 2),
+        new THREE.RawShaderMaterial({
+            vertexShader: renderVertexShaderText,
+            fragmentShader: renderFragmentShaderText,
+            uniforms: {
+                tDiffuse: {
+                    value: renderTarget.texture[0]
+                },
+                tNormal: {
+                    value: renderTarget.texture[1]
+                }
+            },
+            glslVersion: THREE.GLSL3
+        })
+    );
+    
+    postprocessScene.add(postprocessPlane);
+    
+    
+    const setSize = () => {
+        width = wrapperElement.offsetWidth;
+        height = wrapperElement.offsetHeight;
+        sceneCamera.aspect = width / height;
+        sceneCamera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+        renderTarget.setSize(width * ratio, height * ratio);
+    }
+    
+    const tick = (time) => {
+        mesh.rotation.x = time * 0.0008;
+        mesh.rotation.y = time * 0.0009;
+        mesh.rotation.z = time * 0.001;
+       
+        renderTarget.samples = 4;
+
+        renderer.setRenderTarget(renderTarget);
+        renderer.render(scene, sceneCamera);
+
+        renderer.setRenderTarget(null);
+        renderer.render(postprocessScene, postprocessCamera);
+
+        requestAnimationFrame(tick);
+    }
+   
+    setSize();
+    window.addEventListener('resize', () => setSize());
+    
+    requestAnimationFrame(tick);
+</script>
+
+</body>
+</html>
