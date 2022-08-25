@@ -81,18 +81,50 @@ void main() {
 precision highp float;
 precision highp int;
 
-layout(location = 0) out vec4 pc_FragColor;
+layout(location = 0) out vec4 outColor;
 
 in vec2 vUv;
 
-uniform sampler2D tDiffuse;
-uniform sampler2D tNormal;
+struct Surface {
+    vec3 diffuse;
+    vec3 normal;
+    // vec3 worldPosition;
+};
+
+struct PointLight {
+    vec3 position;
+    float intensity;
+    float distance;
+};
+
+uniform sampler2D uDiffuse;
+uniform sampler2D uNormal;
+uniform PointLight[1] uPointLights;
+
+vec3 calcPointLight(PointLight pointLight, Surface surface) {
+    // dummy
+    vec3 dir = vec3(1, 1, 1);
+    dir = normalize(dir);
+    // TODO: どうだったっけ
+    float diffuse = clamp(0., 1., dot(surface.normal, dir));
+    // diffuse = diffuse / (pointLight.distance * pointLight.distance);
+    return vec3(diffuse);
+}
 
 void main() {
-    vec3 diffuse = texture(tDiffuse, vUv).rgb;
-    vec3 normal = texture(tNormal, vUv).rgb;
-    pc_FragColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
-    pc_FragColor.a = 1.;
+    vec3 diffuse = texture(uDiffuse, vUv).rgb;
+    vec3 normal = texture(uNormal, vUv).rgb;
+    vec3 color = vec3(0.);
+    for(int i = 0; i < 1; i++)
+    {
+        PointLight pointLight = uPointLights[i];
+        Surface surface = Surface(diffuse, normal);
+        color += calcPointLight(pointLight, surface);
+    }
+    outColor.rgb = color;
+    outColor.a = 1.;
+    // outColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
+    // outColor.a = 1.;
 }
 `;
     const wrapperElement = document.getElementById("js-wrapper");
@@ -129,9 +161,33 @@ void main() {
     );
     
     scene.add(mesh);
-    
+
     sceneCamera.position.copy(new THREE.Vector3(0, 0, 5))
     sceneCamera.lookAt(mesh.position);
+    
+    const lightProps = new THREE.Object3D();
+    lightProps.add(new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 8, 8),
+        new THREE.RawShaderMaterial({
+            vertexShader: gbufferVertexShaderText,
+            fragmentShader: gbufferFragmentShaderText,
+            uniforms: {},
+        }),
+    ));
+    lightProps.add(new THREE.PointLight(0xff0000, 1, 100));
+    scene.add(lightProps);
+    
+    const pointLights = [];
+    
+    scene.traverse(obj => {
+        if(obj.isPointLight) {
+            pointLights.push({
+                intensity: obj.intensity,
+                distance: obj.distance,
+                position: obj.position, // TODO: world position
+            });
+        }
+    });
     
     const postprocessScene = new THREE.Scene();
     const postprocessCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -142,11 +198,14 @@ void main() {
             vertexShader: renderVertexShaderText,
             fragmentShader: renderFragmentShaderText,
             uniforms: {
-                tDiffuse: {
+                uDiffuse: {
                     value: renderTarget.texture[0]
                 },
-                tNormal: {
+                uNormal: {
                     value: renderTarget.texture[1]
+                },
+                uPointLights: {
+                    value: pointLights
                 }
             },
             glslVersion: THREE.GLSL3
@@ -154,7 +213,6 @@ void main() {
     );
     
     postprocessScene.add(postprocessPlane);
-    
     
     const setSize = () => {
         width = wrapperElement.offsetWidth;
