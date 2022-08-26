@@ -241,7 +241,7 @@ void main() {
     const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
     renderer.setPixelRatio(ratio);
     
-    const renderTarget = new THREE.WebGLMultipleRenderTargets(1, 1, 2);
+    const renderTarget = new GBufferRenderTargets(1, 1, 2);
     renderTarget.texture.forEach(texture => {
         texture.minFilter = THREE.NearestFilter;
         texture.magFilter = THREE.NearestFilter;
