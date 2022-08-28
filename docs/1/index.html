@@ -39,6 +39,7 @@
     // ref:
     // https://threejs.org/examples/webgl2_multiple_rendertargets.html
     // https://github.com/mrdoob/three.js/blob/master/src/renderers/WebGLMultipleRenderTargets.js
+    // https://threejs.org/examples/webgl_depth_texture.html
     // -----------------------------------------------------------------------------
 
     class GBufferRenderTargets extends THREE.WebGLRenderTarget {
@@ -176,6 +177,8 @@ void main() {
 precision highp float;
 precision highp int;
 
+#include <packing>
+
 layout(location = 0) out vec4 outColor;
 
 in vec2 vUv;
@@ -194,8 +197,17 @@ struct PointLight {
 
 uniform sampler2D uDiffuse;
 uniform sampler2D uNormal;
+uniform sampler2D uDepth;
 // uniform sampler2D uWorldPosition;
 uniform PointLight[1] uPointLights;
+uniform float uCameraNear;
+uniform float uCameraFar;
+
+float readDepth( sampler2D depthSampler, vec2 coord ) {
+    float fragCoordZ = texture( depthSampler, coord ).x;
+    float viewZ = perspectiveDepthToViewZ( fragCoordZ, uCameraNear, uCameraFar );
+    return viewZToOrthographicDepth( viewZ, uCameraNear, uCameraFar );
+}
 
 vec3 calcPointLight(PointLight pointLight, Surface surface) {
     // vec3 rawPtoL = pointLight.position - surface.worldPosition;
@@ -217,6 +229,7 @@ vec3 calcPointLight(PointLight pointLight, Surface surface) {
 void main() {
     vec3 diffuse = texture(uDiffuse, vUv).rgb;
     vec3 normal = texture(uNormal, vUv).rgb * 2. - 1.;
+    float depth = readDepth(uDepth, vUv);
     // vec3 worldPosition = texture(uWorldPosition, vUv).rgb;
     
     // Surface surface = Surface(diffuse, normal, worldPosition);
@@ -231,6 +244,7 @@ void main() {
     outColor.rgb = color;
     outColor.a = 1.;
     outColor.rgb = normal;
+    outColor.rgb = vec3(depth);
     // outColor.rgb = worldPosition;
     // outColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
     // outColor.a = 1.;
@@ -254,6 +268,8 @@ void main() {
     renderTarget.texture[0].name = "diffuse";
     renderTarget.texture[1].name = "normal";
     // renderTarget.texture[2].name = "worldPosition";
+    
+    renderTarget.depthTexture = new THREE.DepthTexture();
     
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
@@ -317,6 +333,15 @@ void main() {
                 },
                 uNormal: {
                     value: renderTarget.texture[1]
+                },
+                uDepth: {
+                    value: renderTarget.depthTexture,
+                },
+                uCameraNear: {
+                    value: sceneCamera.near,
+                },
+                uCameraFar: {
+                    value: sceneCamera.far
                 },
                 // uWorldPosition: {
                 //     value: renderTarget.texture[2]
