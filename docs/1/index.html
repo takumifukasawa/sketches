@@ -43,9 +43,9 @@
 
     class GBufferRenderTargets extends THREE.WebGLRenderTarget {
 
-        constructor( width, height, count, options = {} ) {
+        constructor( width, height) {
 
-            super( width, height, options );
+            super( width, height);
 
             this.isWebGLMultipleRenderTargets = true;
 
@@ -53,13 +53,16 @@
 
             this.texture = [];
 
-            for ( let i = 0; i < count; i ++ ) {
+            this.texture[0] = texture.clone();
+            this.texture[0].isRenderTargetTexture = true;
 
-                this.texture[ i ] = texture.clone();
-                this.texture[ i ].isRenderTargetTexture = true;
+            this.texture[1] = texture.clone();
+            this.texture[1].isRenderTargetTexture = true;
 
-            }
-
+            // this.texture[2] = texture.clone();
+            // this.texture[2].isRenderTargetTexture = true;
+            
+            // console.log(THREE)
         }
 
         setSize( width, height, depth = 1 ) {
@@ -240,8 +243,10 @@ void main() {
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
     renderer.setPixelRatio(ratio);
+
     
-    const renderTarget = new GBufferRenderTargets(1, 1, 2);
+    // const renderTarget = new GBufferRenderTargets(1, 1);
+    const renderTarget = new THREE.WebGLMultipleRenderTargets(1, 1, 2);
     renderTarget.texture.forEach(texture => {
         texture.minFilter = THREE.NearestFilter;
         texture.magFilter = THREE.NearestFilter;
