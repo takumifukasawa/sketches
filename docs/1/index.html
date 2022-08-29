@@ -292,7 +292,7 @@ void main() {
     const mesh = new THREE.Mesh(
         // new THREE.BoxGeometry(1, 1, 1),
         // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
-        new THREE.TorusGeometry( 1, 0.3, 16, 32 ),
+        new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
         new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
@@ -307,69 +307,55 @@ void main() {
     sceneCamera.lookAt(mesh.position);
     
     const lightProps = new THREE.Object3D();
-    // lightProps.add(new THREE.Mesh(
-    //     new THREE.SphereGeometry(0.1, 8, 8),
-    //     new THREE.RawShaderMaterial({
-    //         vertexShader: gbufferVertexShaderText,
-    //         fragmentShader: gbufferFragmentShaderText,
-    //         uniforms: {},
-    //     }),
-    // ));
-    lightProps.add(new THREE.PointLight(0xff0000, 200, 100));
+    lightProps.add(new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 8, 8),
+        new THREE.RawShaderMaterial({
+            vertexShader: gbufferVertexShaderText,
+            fragmentShader: gbufferFragmentShaderText,
+            uniforms: {},
+        }),
+    ));
+    lightProps.add(new THREE.PointLight(0xff0000, 100, 100));
     scene.add(lightProps);
-    
-    const pointLights = [];
-    
-    scene.traverse(obj => {
-        if(obj.isPointLight) {
-            pointLights.push({
-                intensity: obj.intensity,
-                distance: obj.distance,
-                // position: obj.position, // TODO: world position
-                position: { x:0, y:5, z:0 } // TODO: world position
-            });
-        }
-    });
-
-    // const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.projectionMatrixInverse, sceneCamera.matrixWorldInverse);
-    const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.matrixWorldInverse, sceneCamera.projectionMatrixInverse);
 
     const postprocessScene = new THREE.Scene();
     const postprocessCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     
+    const postprocessMaterial = new THREE.RawShaderMaterial({
+        vertexShader: renderVertexShaderText,
+        fragmentShader: renderFragmentShaderText,
+        uniforms: {
+            uDiffuse: {
+                value: renderTarget.texture[0]
+            },
+            uNormal: {
+                value: renderTarget.texture[1]
+            },
+            uDepth: {
+                value: renderTarget.depthTexture,
+            },
+            uCameraNear: {
+                value: 0,
+            },
+            uCameraFar: {
+                value: 1
+            },
+            uInverseViewProjectionMatrix: {
+                value: new THREE.Matrix4()
+            },
+            // uWorldPosition: {
+            //     value: renderTarget.texture[2]
+            // },
+            uPointLights: {
+                value: []
+            }
+        },
+        glslVersion: THREE.GLSL3
+    });
+    
     const postprocessPlane = new THREE.Mesh(
         new THREE.PlaneGeometry(2, 2),
-        new THREE.RawShaderMaterial({
-            vertexShader: renderVertexShaderText,
-            fragmentShader: renderFragmentShaderText,
-            uniforms: {
-                uDiffuse: {
-                    value: renderTarget.texture[0]
-                },
-                uNormal: {
-                    value: renderTarget.texture[1]
-                },
-                uDepth: {
-                    value: renderTarget.depthTexture,
-                },
-                uCameraNear: {
-                    value: sceneCamera.near,
-                },
-                uCameraFar: {
-                    value: sceneCamera.far
-                },
-                uInverseViewProjectionMatrix: {
-                    value: inverseViewProjectionMatrix
-                },
-                // uWorldPosition: {
-                //     value: renderTarget.texture[2]
-                // },
-                uPointLights: {
-                    value: pointLights
-                }
-            },
-            glslVersion: THREE.GLSL3
-        })
+        postprocessMaterial
     );
     
     postprocessScene.add(postprocessPlane);
@@ -392,6 +378,27 @@ void main() {
         mesh.rotation.z = time * 0.001;
        
         renderTarget.samples = 3;
+
+        // const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.projectionMatrixInverse, sceneCamera.matrixWorldInverse);
+        const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.matrixWorldInverse, sceneCamera.projectionMatrixInverse);
+        
+        const pointLights = [];
+
+        scene.traverse(obj => {
+            if(obj.isPointLight) {
+                pointLights.push({
+                    intensity: obj.intensity,
+                    distance: obj.distance,
+                    // position: obj.position, // TODO: world position
+                    position: { x:0, y:5, z:0 } // TODO: world position
+                });
+            }
+        });
+
+        postprocessMaterial.uniforms.uCameraNear.value = sceneCamera.near;
+        postprocessMaterial.uniforms.uCameraFar.value = sceneCamera.far;
+        postprocessMaterial.uniforms.uInverseViewProjectionMatrix.value = inverseViewProjectionMatrix;
+        postprocessMaterial.uniforms.uPointLights.value = pointLights;
 
         renderer.setRenderTarget(renderTarget);
         renderer.render(scene, sceneCamera);
