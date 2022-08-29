@@ -204,9 +204,14 @@ struct PointLight {
     float distance;
 };
 
+struct Camera {
+    vec3 position;
+};
+
 uniform sampler2D uDiffuse;
 uniform sampler2D uNormal;
 uniform sampler2D uDepth;
+uniform Camera uCamera;
 // uniform sampler2D uWorldPosition;
 uniform PointLight[1] uPointLights;
 uniform float uCameraNear;
@@ -226,13 +231,31 @@ vec3 reconstructWorldPositionFromDepth(vec2 uv, float depth, mat4 inverseViewPro
     return position.xyz / position.w;
 }
 
-vec3 calcPointLight(PointLight pointLight, Surface surface) {
+vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
+    // common
     vec3 rawPtoL = pointLight.position - surface.worldPosition;
+    vec3 rawPtoE = camera.position - surface.worldPosition;
     vec3 PtoL = normalize(rawPtoL);
-    float diffuse = clamp(0., 1., dot(surface.normal, PtoL));
+    vec3 PtoE = normalize(rawPtoE);
+    vec3 HalfV = normalize(PtoL + PtoE);
+    vec3 reflectV = reflect(-PtoL, surface.normal);
     float distPtoL = length(rawPtoL);
+    // diffuse
+    float diffuseRate = clamp(0., 1., dot(surface.normal, PtoL));
     float attenuation = pointLight.intensity / (distPtoL * distPtoL);
-    return surface.diffuse * diffuse * attenuation;
+    vec3 diffuseColor = surface.diffuse * diffuseRate * attenuation;
+    // specular
+    // 1: use reflect V
+    // float specularRate = clamp(0., 1., dot(PtoE, reflectV));
+    // 2: use half V
+    float specularRate = clamp(0., 1., dot(surface.normal, HalfV));
+    float specularPower = 64.;
+    float specular = pow(specularRate, specularPower);
+    vec3 specularColor = vec3(specular);
+    // result
+    vec3 resultColor = diffuseColor + specularColor;
+    // vec3 resultColor = specularColor * surface.diffuse;
+    return resultColor;
 }
 
 
@@ -247,11 +270,13 @@ void main() {
     Surface surface = Surface(diffuse, normal, worldPosition);
     // Surface surface = Surface(diffuse, normal);
     
+    Camera camera = Camera(uCamera.position);
+    
     vec3 color = vec3(0.);
     for(int i = 0; i < 1; i++)
     {
         PointLight pointLight = uPointLights[i];
-        color += calcPointLight(pointLight, surface);
+        color += calcPointLight(pointLight, surface, camera);
     }
     outColor.rgb = color;
     outColor.a = 1.;
@@ -316,6 +341,7 @@ void main() {
         }),
     ));
     lightProps.add(new THREE.PointLight(0xff0000, 100, 100));
+    lightProps.position.copy(new THREE.Vector3(0, 2, 0))
     scene.add(lightProps);
 
     const postprocessScene = new THREE.Scene();
@@ -348,6 +374,9 @@ void main() {
             // },
             uPointLights: {
                 value: []
+            },
+            uCamera: {
+                value: {}
             }
         },
         glslVersion: THREE.GLSL3
@@ -389,8 +418,7 @@ void main() {
                 pointLights.push({
                     intensity: obj.intensity,
                     distance: obj.distance,
-                    // position: obj.position, // TODO: world position
-                    position: { x:0, y:5, z:0 } // TODO: world position
+                    position: obj.getWorldPosition(new THREE.Vector3())
                 });
             }
         });
@@ -399,6 +427,9 @@ void main() {
         postprocessMaterial.uniforms.uCameraFar.value = sceneCamera.far;
         postprocessMaterial.uniforms.uInverseViewProjectionMatrix.value = inverseViewProjectionMatrix;
         postprocessMaterial.uniforms.uPointLights.value = pointLights;
+        postprocessMaterial.uniforms.uCamera.value = {
+            position: sceneCamera.getWorldPosition(new THREE.Vector3())
+        }
 
         renderer.setRenderTarget(renderTarget);
         renderer.render(scene, sceneCamera);
