@@ -1,5 +1,8 @@
-<!doctype html>
-<html>
+
+console.log("========<
+
+console.log(sceneCamera.projectionMatrixInverse)
+html>
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
@@ -217,7 +220,8 @@ uniform Camera uCamera;
 uniform PointLight[1] uPointLights;
 uniform float uCameraNear;
 uniform float uCameraFar;
-uniform mat4 uInverseViewProjectionMatrix;
+uniform mat4 uInverseViewMatrix;
+uniform mat4 uInverseProjectionMatrix;
 
 float readDepth( sampler2D depthSampler, vec2 coord ) {
     float fragCoordZ = texture( depthSampler, coord ).x;
@@ -225,11 +229,16 @@ float readDepth( sampler2D depthSampler, vec2 coord ) {
     return viewZToOrthographicDepth( viewZ, uCameraNear, uCameraFar );
 }
 
-vec3 reconstructWorldPositionFromDepth(vec2 uv, float depth, mat4 inverseViewProjectionMatrix)
+vec3 reconstructWorldPositionFromDepth(vec2 uv, float depth)
 {
-    vec4 projectedPosition = vec4(uv.xy * 2. - vec2(1., 1.), depth, 1.);
-    vec4 position = inverseViewProjectionMatrix * projectedPosition;
-    return position.xyz / position.w;
+    float d = depth * 2. - 1.;
+    vec4 projectedPosition = vec4(uv.xy * 2. - 1., d, 1.);
+    // vec4 projectedPosition = vec4(uv.xy * 2. - vec2(1., 1.), d, 1.);
+    vec4 viewSpacePosition = uInverseProjectionMatrix * projectedPosition;
+    viewSpacePosition.xyz /= viewSpacePosition.w;
+    vec4 worldSpacePosition = uInverseViewMatrix * viewSpacePosition;
+    return worldSpacePosition.xyz * vec3(1., 1., -1.);
+    // return worldSpacePosition.xyz;
 }
 
 vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
@@ -266,7 +275,8 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     }
     // result
     vec3 resultColor = diffuseColor + specularColor;
-    resultColor = vec3(angle);
+    // resultColor = vec3(dot(surface.normal, vec3(1., 0., 0.)));
+    resultColor = vec3(dot(surface.normal, PtoL)) * surface.diffuse;
     return resultColor;
 }
 
@@ -275,13 +285,10 @@ void main() {
     vec3 diffuse = texture(uDiffuse, vUv).rgb;
     vec3 normal = texture(uNormal, vUv).rgb * 2. - 1.;
     normal = normalize(normal);
-    // vec3 normal = texture(uNormal, vUv).rgb;
     // float depth = readDepth(uDepth, vUv);
     float depth = texture(uDepth, vUv).x;
-    vec3 worldPosition = reconstructWorldPositionFromDepth(vUv, depth, uInverseViewProjectionMatrix);
-    
+    vec3 worldPosition = reconstructWorldPositionFromDepth(vUv, depth);
     Surface surface = Surface(diffuse, normal, worldPosition);
-    // Surface surface = Surface(diffuse, normal);
     
     Camera camera = Camera(uCamera.position);
     
@@ -295,7 +302,10 @@ void main() {
     outColor.a = 1.;
     // outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
-    // outColor.rgb = worldPosition * diffuse;
+    outColor.rgb = worldPosition * diffuse;
+    outColor.rgb = vec3(worldPosition.z) * diffuse;
+    // outColor.rgb = vec3(worldPosition.xy, -worldPosition.z * 1.) * diffuse;
+    // outColor.rgb = vec3(sign(worldPosition.z)) * diffuse;
     // outColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
     // outColor.a = 1.;
 }
@@ -323,13 +333,13 @@ void main() {
     
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
-    const sceneCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 10);
+    const sceneCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 5);
     
     let width, height;
     
     const mesh = new THREE.Mesh(
         // new THREE.BoxGeometry(1, 1, 1),
-        new THREE.SphereGeometry(1, 32, 32),
+        new THREE.SphereGeometry(2, 32, 32),
         // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
         // new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
         new THREE.RawShaderMaterial({
@@ -342,7 +352,7 @@ void main() {
     
     scene.add(mesh);
 
-    sceneCamera.position.copy(new THREE.Vector3(0, 0, 5))
+    sceneCamera.position.copy(new THREE.Vector3(5, 0, 0))
     sceneCamera.lookAt(mesh.position);
     
     const lightProps = new THREE.Object3D();
@@ -380,7 +390,10 @@ void main() {
             uCameraFar: {
                 value: 1
             },
-            uInverseViewProjectionMatrix: {
+            uInverseViewMatrix: {
+                value: new THREE.Matrix4()
+            },
+            uInverseProjectionMatrix: {
                 value: new THREE.Matrix4()
             },
             // uWorldPosition: {
@@ -440,12 +453,18 @@ void main() {
 
         postprocessMaterial.uniforms.uCameraNear.value = sceneCamera.near;
         postprocessMaterial.uniforms.uCameraFar.value = sceneCamera.far;
-        postprocessMaterial.uniforms.uInverseViewProjectionMatrix.value = inverseViewProjectionMatrix;
+        postprocessMaterial.uniforms.uInverseViewMatrix.value = sceneCamera.matrixWorldInverse;
+        postprocessMaterial.uniforms.uInverseProjectionMatrix.value = sceneCamera.projectionMatrixInverse;
         postprocessMaterial.uniforms.uPointLights.value = pointLights;
         postprocessMaterial.uniforms.uCamera.value = {
             position: sceneCamera.getWorldPosition(new THREE.Vector3())
         }
 
+        // console.log("========")
+        // console.log(sceneCamera.matrixWorldInverse)
+        // console.log(sceneCamera.projectionMatrixInverse)
+        
+        
         renderer.setRenderTarget(renderTarget);
         renderer.render(scene, sceneCamera);
 
