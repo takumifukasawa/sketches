@@ -232,7 +232,7 @@ float readDepth( sampler2D depthSampler, vec2 coord ) {
 vec3 reconstructWorldPositionFromDepth(vec2 uv, float depth)
 {
     float d = depth * 2. - 1.;
-    // d = depth;
+    d = depth;
     vec4 projectedPosition = vec4(uv.xy * 2. - 1., d, 1.);
     vec4 viewSpacePosition = uInverseProjectionMatrix * projectedPosition;
     viewSpacePosition.xyz /= viewSpacePosition.w;
@@ -240,6 +240,7 @@ vec3 reconstructWorldPositionFromDepth(vec2 uv, float depth)
     // worldSpacePosition.xyz / worldSpacePosition.w;
     // vec3 p = worldSpacePosition.xyz * vec3(1., 1., -1.);
     vec3 p = worldSpacePosition.xyz;
+    // p.z = p.z * -1. - 1.;
     p.z = p.z * -1. - 1.;
     return p;
     // return worldSpacePosition.xyz;
@@ -290,7 +291,8 @@ void main() {
     vec3 normal = texture(uNormal, vUv).rgb * 2. - 1.;
     normal = normalize(normal);
     // float depth = readDepth(uDepth, vUv);
-    float depth = texture(uDepth, vUv).x;
+    // float depth = texture(uDepth, vUv).x;
+    float depth = unpackRGBAToDepth(texture(uDepth, vUv));
     vec3 worldPosition = reconstructWorldPositionFromDepth(vUv, depth);
     Surface surface = Surface(diffuse, normal, worldPosition);
     
@@ -414,6 +416,7 @@ void main() {
         glslVersion: THREE.GLSL3
     });
     
+     
     const postprocessPlane = new THREE.Mesh(
         new THREE.PlaneGeometry(2, 2),
         postprocessMaterial
