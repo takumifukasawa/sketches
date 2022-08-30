@@ -202,6 +202,7 @@ struct PointLight {
     vec3 position;
     float intensity;
     float distance;
+    vec3 color;
 };
 
 struct Camera {
@@ -240,21 +241,32 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     vec3 HalfV = normalize(PtoL + PtoE);
     vec3 reflectV = reflect(-PtoL, surface.normal);
     float distPtoL = length(rawPtoL);
-    // diffuse
-    float diffuseRate = clamp(0., 1., dot(surface.normal, PtoL));
     float attenuation = pointLight.intensity / (distPtoL * distPtoL);
-    vec3 diffuseColor = surface.diffuse * diffuseRate * attenuation;
+    float angle = dot(surface.normal, PtoL);
+    
+    // diffuse
+    vec3 diffuseColor = vec3(0.);
+    if(angle > 0.)
+    {
+        float diffuseRate = clamp(0., 1., dot(surface.normal, PtoL));
+        diffuseColor = surface.diffuse * pointLight.color * diffuseRate * attenuation;
+    }
+    
     // specular
-    // 1: use reflect V
-    // float specularRate = clamp(0., 1., dot(PtoE, reflectV));
-    // 2: use half V
-    float specularRate = clamp(0., 1., dot(surface.normal, HalfV));
-    float specularPower = 64.;
-    float specular = pow(specularRate, specularPower);
-    vec3 specularColor = vec3(specular);
+    vec3 specularColor = vec3(0.);
+    if(angle > 0.)
+    {
+        // 1: use reflect V
+        // float specularRate = clamp(0., 1., dot(PtoE, reflectV));
+        // 2: use half V
+        float specularRate = max(0., dot(surface.normal, HalfV));
+        float specularPower = 64.;
+        float specular = pow(specularRate, specularPower);
+        specularColor = vec3(specular) * pointLight.color * attenuation;
+    }
     // result
     vec3 resultColor = diffuseColor + specularColor;
-    // vec3 resultColor = specularColor * surface.diffuse;
+    resultColor = vec3(angle);
     return resultColor;
 }
 
@@ -262,6 +274,7 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
 void main() {
     vec3 diffuse = texture(uDiffuse, vUv).rgb;
     vec3 normal = texture(uNormal, vUv).rgb * 2. - 1.;
+    normal = normalize(normal);
     // vec3 normal = texture(uNormal, vUv).rgb;
     // float depth = readDepth(uDepth, vUv);
     float depth = texture(uDepth, vUv).x;
@@ -316,8 +329,9 @@ void main() {
     
     const mesh = new THREE.Mesh(
         // new THREE.BoxGeometry(1, 1, 1),
+        new THREE.SphereGeometry(1, 32, 32),
         // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
-        new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
+        // new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
         new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
@@ -341,7 +355,7 @@ void main() {
         }),
     ));
     lightProps.add(new THREE.PointLight(0xff0000, 100, 100));
-    lightProps.position.copy(new THREE.Vector3(0, 2, 0))
+    lightProps.position.copy(new THREE.Vector3(5, 0, 0))
     scene.add(lightProps);
 
     const postprocessScene = new THREE.Scene();
@@ -402,9 +416,9 @@ void main() {
         // mesh.rotation.x = 90;
         // mesh.rotation.y = 0.0009;
         // mesh.rotation.z = 0.001;
-        mesh.rotation.x = time * 0.0008;
-        mesh.rotation.y = time * 0.0009;
-        mesh.rotation.z = time * 0.001;
+        // mesh.rotation.x = time * 0.0008;
+        mesh.rotation.y = time * 0.0002;
+        // mesh.rotation.z = time * 0.001;
        
         renderTarget.samples = 3;
 
@@ -416,6 +430,7 @@ void main() {
         scene.traverse(obj => {
             if(obj.isPointLight) {
                 pointLights.push({
+                    color: obj.color,
                     intensity: obj.intensity,
                     distance: obj.distance,
                     position: obj.getWorldPosition(new THREE.Vector3())
