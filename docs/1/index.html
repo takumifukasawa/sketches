@@ -309,7 +309,7 @@ void main() {
     // outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
     outColor.rgb = worldPosition * diffuse;
-    outColor.rgb = vec3(worldPosition.z) * diffuse;
+    outColor.rgb = vec3(worldPosition.y) * diffuse;
     // outColor.rgb = vec3(worldPosition.xy, -worldPosition.z * 1.) * diffuse;
     // outColor.rgb = vec3(sign(worldPosition.z)) * diffuse;
     // outColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
@@ -359,7 +359,7 @@ void main() {
     
     scene.add(mesh);
 
-    sceneCamera.position.copy(new THREE.Vector3(5, 0, 0))
+    sceneCamera.position.copy(new THREE.Vector3(0, 0, 5))
     sceneCamera.lookAt(mesh.position);
     
     const lightProps = new THREE.Object3D();
