@@ -1,8 +1,4 @@
-
-console.log("========<
-
-console.log(sceneCamera.projectionMatrixInverse)
-html>
+<html>
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
@@ -44,6 +40,7 @@ html>
     // https://github.com/mrdoob/three.js/blob/master/src/renderers/WebGLMultipleRenderTargets.js
     // https://threejs.org/examples/webgl_depth_texture.html
     // https://enginetrouble.net/2016/10/reconstructing-world-position-from-depth-2016.html
+    // https://discourse.threejs.org/t/reconstruct-world-position-in-screen-space-from-depth-buffer/5532
     // -----------------------------------------------------------------------------
 
     class GBufferRenderTargets extends THREE.WebGLRenderTarget {
@@ -231,19 +228,35 @@ float readDepth( sampler2D depthSampler, vec2 coord ) {
 
 vec3 reconstructWorldPositionFromDepth(vec2 uv, float depth)
 {
-    float d = depth * 2. - 1.;
-    d = depth;
-    vec4 projectedPosition = vec4(uv.xy * 2. - 1., d, 1.);
-    vec4 viewSpacePosition = uInverseProjectionMatrix * projectedPosition;
-    viewSpacePosition.xyz /= viewSpacePosition.w;
-    vec4 worldSpacePosition = uInverseViewMatrix * viewSpacePosition;
-    // worldSpacePosition.xyz / worldSpacePosition.w;
-    // vec3 p = worldSpacePosition.xyz * vec3(1., 1., -1.);
-    vec3 p = worldSpacePosition.xyz;
-    // p.z = p.z * -1. - 1.;
-    p.z = p.z * -1. - 1.;
-    return p;
-    // return worldSpacePosition.xyz;
+    vec4 ndc = vec4(
+        // (uv.x - .5) * 2.,
+        // (uv.y - .5) * 2.,
+        uv.xy * 2. - 1.,
+        (depth - .5) * 2.,
+        // depth,
+        1.
+    );
+    vec4 clip = uInverseProjectionMatrix * ndc;
+    clip.xyz /= clip.w;
+    vec4 view = uInverseViewMatrix * clip;
+    vec3 result = view.xyz;
+    result.z = result.z * -1. - 1.;
+    return result;
+
+    // float d = depth * 2. - 1.;
+    // d = depth;
+    // vec4 projectedPosition = vec4(uv.xy * 2. - 1., d, 1.);
+    // vec4 viewSpacePosition = uInverseProjectionMatrix * projectedPosition;
+    // viewSpacePosition.xyz /= viewSpacePosition.w;
+    // vec4 worldSpacePosition = uInverseViewMatrix * viewSpacePosition;
+    // // worldSpacePosition.xyz / worldSpacePosition.w;
+    // // vec3 p = worldSpacePosition.xyz * vec3(1., 1., -1.);
+    // vec3 p = worldSpacePosition.xyz;
+    // // p.z = p.z * -1. - 1.;
+    // // p.z = p.z * -1.;
+    // p.z = p.z * -1. - 1.; // TODO: why?
+    // return p;
+    // // return worldSpacePosition.xyz;
 }
 
 vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
@@ -281,7 +294,8 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     // result
     vec3 resultColor = diffuseColor + specularColor;
     // resultColor = vec3(dot(surface.normal, vec3(1., 0., 0.)));
-    resultColor = vec3(dot(surface.normal, PtoL)) * surface.diffuse;
+    // resultColor = vec3(dot(surface.normal, PtoL)) * surface.diffuse;
+    // resultColor = vec3(angle) * surface.diffuse;
     return resultColor;
 }
 
@@ -290,7 +304,7 @@ void main() {
     vec3 diffuse = texture(uDiffuse, vUv).rgb;
     vec3 normal = texture(uNormal, vUv).rgb * 2. - 1.;
     normal = normalize(normal);
-    // float depth = readDepth(uDepth, vUv);
+    float readedDepth = readDepth(uDepth, vUv);
     // float depth = texture(uDepth, vUv).x;
     float depth = unpackRGBAToDepth(texture(uDepth, vUv));
     vec3 worldPosition = reconstructWorldPositionFromDepth(vUv, depth);
@@ -304,14 +318,20 @@ void main() {
         PointLight pointLight = uPointLights[i];
         color += calcPointLight(pointLight, surface, camera);
     }
-    outColor.rgb = color;
+    color *= depth;
+    outColor.rgb = color * surface.diffuse;
     outColor.a = 1.;
+    
+    // mask
+    outColor.rgb *= readedDepth;
+   
+    // for debug 
     // outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
     outColor.rgb = worldPosition * diffuse;
-    outColor.rgb = vec3(worldPosition.y) * diffuse;
+    // outColor.rgb = vec3(worldPosition.y) * diffuse;
     // outColor.rgb = vec3(worldPosition.xy, -worldPosition.z * 1.) * diffuse;
-    // outColor.rgb = vec3(sign(worldPosition.z)) * diffuse;
+    // outColor.rgb = vec3(sign(worldPosition.z - 1.2)) * diffuse;
     // outColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
     // outColor.a = 1.;
 }
