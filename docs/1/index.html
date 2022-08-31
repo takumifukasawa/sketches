@@ -235,13 +235,19 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
         // float specularRate = clamp(0., 1., dot(PtoE, reflectV));
         // 2: use half V
         float specularRate = max(0., dot(surface.normal, HalfV));
-        float specularPower = 64.;
-        float specular = pow(specularRate, specularPower);
-        specularColor = vec3(specular) * pointLight.color * attenuation;
+        if(specularRate > 0.)
+        {
+            float specularPower = 64.;
+            float specular = pow(specularRate, specularPower);
+            specularColor = vec3(specular) * pointLight.color * attenuation;
+        }
     }
     
     // result
     vec3 resultColor = diffuseColor + specularColor;
+    
+    resultColor = vec3(angle);
+    
     return resultColor;
 }
 
@@ -265,16 +271,11 @@ void main() {
         PointLight pointLight = uPointLights[i];
         color += calcPointLight(pointLight, surface, camera);
     }
-    // color *= depth;
-    // outColor.rgb = color * surface.diffuse;
     
     outColor.rgb = color;
-    // mask 
-    outColor.rgb *= sign(length(diffuse));
-    outColor.a = 1.;
    
     // for debug 
-    // outColor.rgb = normal;
+    outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
     // outColor.rgb = worldPosition * diffuse;
     // outColor.rgb = vec3(0., worldPosition.yz) * diffuse;
@@ -282,6 +283,10 @@ void main() {
     // outColor.rgb = vec3(sign(worldPosition.z - 1.)) * diffuse;
     // outColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
     // outColor.a = 1.;
+    
+    // mask
+    outColor.rgb *= sign(1. - depth);
+    outColor.a = 1.;
 }
 `;
     const wrapperElement = document.getElementById("js-wrapper");
@@ -305,28 +310,38 @@ void main() {
     
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
-    const sceneCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 5);
+    const sceneCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
     
     let width, height;
     
-    const mesh = new THREE.Mesh(
-        // new THREE.BoxGeometry(1, 1, 1),
-        // new THREE.SphereGeometry(1, 32, 32),
-        // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
-        new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
-        new THREE.RawShaderMaterial({
+    const createGBufferMaterial = () => {
+        return new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
             uniforms: {},
             glslVersion: THREE.GLSL3
         })
-    );
-    console.log(mesh)
+    }
     
-    scene.add(mesh);
+    const debugMesh = new THREE.Mesh(
+        // new THREE.BoxGeometry(1, 1, 1),
+        new THREE.SphereGeometry(1, 32, 32),
+        // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
+        // new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
+        createGBufferMaterial()
+    );
+    debugMesh.position.y = 1;
+    scene.add(debugMesh);
+    
+    const floorMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 10, 2, 2),
+        createGBufferMaterial()
+    );
+    floorMesh.rotation.x = (-90 / 180) * Math.PI;
+    scene.add(floorMesh);
 
-    sceneCamera.position.copy(new THREE.Vector3(0, 0, 5))
-    sceneCamera.lookAt(mesh.position);
+    sceneCamera.position.copy(new THREE.Vector3(2, 2, 5))
+    sceneCamera.lookAt(debugMesh.position);
 
     const orbitControls = new THREE.OrbitControls(sceneCamera, canvasElement);
 
@@ -339,8 +354,8 @@ void main() {
             uniforms: {},
         }),
     ));
-    lightProps.add(new THREE.PointLight(0xffffff, 100, 100));
-    lightProps.position.copy(new THREE.Vector3(5, 5, 5))
+    lightProps.add(new THREE.PointLight(0xffffff, 10, 100));
+    lightProps.position.copy(new THREE.Vector3(3, 3, 0))
     scene.add(lightProps);
 
     const postprocessScene = new THREE.Scene();
@@ -402,12 +417,12 @@ void main() {
     }
     
     const tick = (time) => {
-        // mesh.rotation.x = 90;
-        // mesh.rotation.y = 0.0009;
-        // mesh.rotation.z = 0.001;
-        // mesh.rotation.x = time * 0.0008;
-        // mesh.rotation.y = time * 0.0002;
-        // mesh.rotation.z = time * 0.001;
+        // debugMesh.rotation.x = 90;
+        // debugMesh.rotation.y = 0.0009;
+        // debugMesh.rotation.z = 0.001;
+        // debugMesh.rotation.x = time * 0.0008;
+        // debugMesh.rotation.y = time * 0.0002;
+        // debugMesh.rotation.z = time * 0.001;
        
         renderTarget.samples = 3;
 
