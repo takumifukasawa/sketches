@@ -271,15 +271,20 @@ vec3 getWorldPositionFromDepth(vec2 uv, float depth) {
     // // p.z *= -1.;
     // return p;
 
-    vec4 ndc = vec4( uv * 2. - 1., depth * 2. - 1., 1. );
-    // ndc.z *= -1.0f;
-    vec4 vp = uInverseProjectionMatrix * ndc;
-    vp.xyz /= vp.w;
-    vec4 wp = uInverseViewMatrix * vp;
-    // wp.xyz /= wp.w;
-    // vec3 p = ( wp / wp.w ).xyz;
-    // p.z *= -1.;
-    // wp.z = wp.z * -1.;
+    // vec4 ndc = vec4( uv * 2. - 1., depth * 2. - 1., 1. );
+    // // ndc.z *= -1.0f;
+    // vec4 vp = uInverseProjectionMatrix * ndc;
+    // vp.xyz /= vp.w;
+    // vec4 wp = uInverseViewMatrix * vp;
+    // // wp.xyz /= wp.w;
+    // // vec3 p = ( wp / wp.w ).xyz;
+    // // p.z *= -1.;
+    // // wp.z = wp.z * -1.;
+    // return wp.xyz;
+    
+    vec4 ndc = vec4(uv * 2. - 1., depth * 2. - 1., 1.);
+    vec4 wp = uInverseViewMatrix * uInverseProjectionMatrix * ndc;
+    wp.xyz /= wp.w;
     return wp.xyz;
 }
 
@@ -353,10 +358,10 @@ void main() {
     // for debug 
     // outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
-    // outColor.rgb = worldPosition * diffuse;
-    outColor.rgb = vec3(0., worldPosition.yz) * diffuse;
+    outColor.rgb = worldPosition * diffuse;
+    // outColor.rgb = vec3(0., worldPosition.yz) * diffuse;
     // outColor.rgb = vec3(worldPosition.xy, -worldPosition.z * 1.) * diffuse;
-    // outColor.rgb = vec3(sign(worldPosition.y - 0.95)) * diffuse;
+    // outColor.rgb = vec3(sign(worldPosition.z - 1.)) * diffuse;
     // outColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
     // outColor.a = 1.;
 }
@@ -404,7 +409,7 @@ void main() {
     
     scene.add(mesh);
 
-    sceneCamera.position.copy(new THREE.Vector3(5, 0, 0))
+    sceneCamera.position.copy(new THREE.Vector3(0, 0, 5))
     sceneCamera.lookAt(mesh.position);
     
     const lightProps = new THREE.Object3D();
@@ -506,8 +511,8 @@ void main() {
 
         postprocessMaterial.uniforms.uCameraNear.value = sceneCamera.near;
         postprocessMaterial.uniforms.uCameraFar.value = sceneCamera.far;
-        postprocessMaterial.uniforms.uInverseViewMatrix.value = sceneCamera.matrixWorldInverse.clone();
-        // postprocessMaterial.uniforms.uInverseViewMatrix.value = sceneCamera.matrixWorld;
+        // postprocessMaterial.uniforms.uInverseViewMatrix.value = sceneCamera.matrixWorldInverse.clone();
+        postprocessMaterial.uniforms.uInverseViewMatrix.value = sceneCamera.matrixWorld.clone();
         postprocessMaterial.uniforms.uInverseProjectionMatrix.value = sceneCamera.projectionMatrixInverse.clone();
         postprocessMaterial.uniforms.uPointLights.value = pointLights;
         postprocessMaterial.uniforms.uCamera.value = {
