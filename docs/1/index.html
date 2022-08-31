@@ -31,7 +31,8 @@
     <canvas id="js-canvas"></canvas>
 </div>
 
-<script src="https://unpkg.com/three@0.142.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.143.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.143.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
     // -----------------------------------------------------------------------------
@@ -44,89 +45,6 @@
     // https://stackoverflow.com/questions/70178695/reconstruct-worldposition-xyz-from-depth
     // -----------------------------------------------------------------------------
 
-    class GBufferRenderTargets extends THREE.WebGLRenderTarget {
-
-        constructor( width, height) {
-
-            super( width, height);
-
-            this.isWebGLMultipleRenderTargets = true;
-
-            const texture = this.texture;
-
-            this.texture = [];
-
-            this.texture[0] = texture.clone();
-            this.texture[0].isRenderTargetTexture = true;
-
-            this.texture[1] = texture.clone();
-            this.texture[1].isRenderTargetTexture = true;
-
-            // this.texture[2] = texture.clone();
-            // this.texture[2].isRenderTargetTexture = true;
-            
-            // console.log(THREE)
-        }
-
-        setSize( width, height, depth = 1 ) {
-
-            if ( this.width !== width || this.height !== height || this.depth !== depth ) {
-
-                this.width = width;
-                this.height = height;
-                this.depth = depth;
-
-                for ( let i = 0, il = this.texture.length; i < il; i ++ ) {
-
-                    this.texture[ i ].image.width = width;
-                    this.texture[ i ].image.height = height;
-                    this.texture[ i ].image.depth = depth;
-
-                }
-
-                this.dispose();
-
-            }
-
-            this.viewport.set( 0, 0, width, height );
-            this.scissor.set( 0, 0, width, height );
-
-            return this;
-
-        }
-
-        copy( source ) {
-
-            this.dispose();
-
-            this.width = source.width;
-            this.height = source.height;
-            this.depth = source.depth;
-
-            this.viewport.set( 0, 0, this.width, this.height );
-            this.scissor.set( 0, 0, this.width, this.height );
-
-            this.depthBuffer = source.depthBuffer;
-            this.stencilBuffer = source.stencilBuffer;
-
-            if ( source.depthTexture !== null ) this.depthTexture = source.depthTexture.clone();
-
-            this.texture.length = 0;
-
-            for ( let i = 0, il = source.texture.length; i < il; i ++ ) {
-
-                this.texture[ i ] = source.texture[ i ].clone();
-                this.texture[ i ].isRenderTargetTexture = true;
-
-            }
-
-            return this;
-
-        }
-
-    }
-    
-    
     const gbufferVertexShaderText = `
 in vec3 position;
 in vec3 normal;
@@ -373,9 +291,7 @@ void main() {
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
     renderer.setPixelRatio(ratio);
-
     
-    // const renderTarget = new GBufferRenderTargets(1, 1);
     const renderTarget = new THREE.WebGLMultipleRenderTargets(1, 1, 2);
     renderTarget.texture.forEach(texture => {
         texture.minFilter = THREE.NearestFilter;
@@ -395,9 +311,9 @@ void main() {
     
     const mesh = new THREE.Mesh(
         // new THREE.BoxGeometry(1, 1, 1),
-        new THREE.SphereGeometry(1, 32, 32),
+        // new THREE.SphereGeometry(1, 32, 32),
         // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
-        // new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
+        new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
         new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
@@ -411,7 +327,9 @@ void main() {
 
     sceneCamera.position.copy(new THREE.Vector3(0, 0, 5))
     sceneCamera.lookAt(mesh.position);
-    
+
+    const orbitControls = new THREE.OrbitControls(sceneCamera, canvasElement);
+
     const lightProps = new THREE.Object3D();
     lightProps.add(new THREE.Mesh(
         new THREE.SphereGeometry(0.1, 8, 8),
@@ -522,7 +440,8 @@ void main() {
         // console.log("========")
         // console.log(sceneCamera.matrixWorldInverse)
         // console.log(sceneCamera.projectionMatrixInverse)
-        
+       
+        orbitControls.update(); 
         
         renderer.setRenderTarget(renderTarget);
         renderer.render(scene, sceneCamera);
