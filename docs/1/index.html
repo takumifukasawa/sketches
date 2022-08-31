@@ -158,7 +158,8 @@ in vec3 vNormal;
 in vec2 vUv;
 // in vec3 vWorldPosition;
 void main() {
-    gColor = vec4(1, 1, 1, 1);
+    // TODO: each mesh color
+    gColor = vec4(1, 0, 0, 1);
     vec3 normal = (normalize(vNormal) + 1.) * .5;
     gNormal = vec4(normal , 1.);
     // gWorldPosition = vec4(vWorldPosition, 1.);
@@ -320,11 +321,9 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
         float specular = pow(specularRate, specularPower);
         specularColor = vec3(specular) * pointLight.color * attenuation;
     }
+    
     // result
     vec3 resultColor = diffuseColor + specularColor;
-    // resultColor = vec3(dot(surface.normal, vec3(1., 0., 0.)));
-    // resultColor = vec3(dot(surface.normal, PtoL)) * surface.diffuse;
-    // resultColor = vec3(angle) * surface.diffuse;
     return resultColor;
 }
 
@@ -348,17 +347,18 @@ void main() {
         PointLight pointLight = uPointLights[i];
         color += calcPointLight(pointLight, surface, camera);
     }
-    color *= depth;
-    outColor.rgb = color * surface.diffuse;
-    outColor.a = 1.;
+    // color *= depth;
+    // outColor.rgb = color * surface.diffuse;
     
-    // mask
-    outColor.rgb *= readedDepth;
+    outColor.rgb = color;
+    // mask 
+    outColor.rgb *= sign(length(diffuse));
+    outColor.a = 1.;
    
     // for debug 
     // outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
-    outColor.rgb = worldPosition * diffuse;
+    // outColor.rgb = worldPosition * diffuse;
     // outColor.rgb = vec3(0., worldPosition.yz) * diffuse;
     // outColor.rgb = vec3(worldPosition.xy, -worldPosition.z * 1.) * diffuse;
     // outColor.rgb = vec3(sign(worldPosition.z - 1.)) * diffuse;
@@ -421,8 +421,8 @@ void main() {
             uniforms: {},
         }),
     ));
-    lightProps.add(new THREE.PointLight(0xff0000, 100, 100));
-    lightProps.position.copy(new THREE.Vector3(5, 0, 0))
+    lightProps.add(new THREE.PointLight(0xffffff, 100, 100));
+    lightProps.position.copy(new THREE.Vector3(5, 5, 5))
     scene.add(lightProps);
 
     const postprocessScene = new THREE.Scene();
