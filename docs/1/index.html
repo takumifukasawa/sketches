@@ -60,7 +60,9 @@ void main() {
     vUv = uv;
     vec4 worldPosition = modelMatrix * vec4(position, 1.);
     vec4 viewPosition = viewMatrix * worldPosition;
-    vec3 transformedNormal = normalMatrix * normal;
+    mat4 worldNormalMatrix = transpose(modelMatrix);
+    // vec3 transformedNormal = normalMatrix * normal;
+    vec3 transformedNormal = (worldNormalMatrix * vec4(normal, 1.)).xyz;
     vNormal = normalize(transformedNormal);
     // vWorldPosition = worldPosition.xyz;
     gl_Position = projectionMatrix * viewPosition;
@@ -235,18 +237,13 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
         // float specularRate = clamp(0., 1., dot(PtoE, reflectV));
         // 2: use half V
         float specularRate = max(0., dot(surface.normal, HalfV));
-        if(specularRate > 0.)
-        {
-            float specularPower = 64.;
-            float specular = pow(specularRate, specularPower);
-            specularColor = vec3(specular) * pointLight.color * attenuation;
-        }
+        float specularPower = 64.;
+        float specular = pow(specularRate, specularPower);
+        specularColor = vec3(specular) * pointLight.color * attenuation;
     }
     
     // result
     vec3 resultColor = diffuseColor + specularColor;
-    
-    resultColor = vec3(angle);
     
     return resultColor;
 }
@@ -275,7 +272,7 @@ void main() {
     outColor.rgb = color;
    
     // for debug 
-    outColor.rgb = normal;
+    // outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
     // outColor.rgb = worldPosition * diffuse;
     // outColor.rgb = vec3(0., worldPosition.yz) * diffuse;
@@ -314,30 +311,31 @@ void main() {
     
     let width, height;
     
-    const createGBufferMaterial = () => {
+    const createGBufferMaterial = (options = {}) => {
         return new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
             uniforms: {},
-            glslVersion: THREE.GLSL3
+            glslVersion: THREE.GLSL3,
+            ...options,
         })
     }
     
     const debugMesh = new THREE.Mesh(
         // new THREE.BoxGeometry(1, 1, 1),
-        new THREE.SphereGeometry(1, 32, 32),
+        // new THREE.SphereGeometry(1, 32, 32),
         // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
-        // new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
+        new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
         createGBufferMaterial()
     );
-    debugMesh.position.y = 1;
+    debugMesh.position.y = 1.3;
     scene.add(debugMesh);
     
     const floorMesh = new THREE.Mesh(
         new THREE.PlaneGeometry(10, 10, 2, 2),
-        createGBufferMaterial()
+        createGBufferMaterial({ side: THREE.DoubleSide })
     );
-    floorMesh.rotation.x = (-90 / 180) * Math.PI;
+    floorMesh.rotation.x = (90 / 180) * Math.PI;
     scene.add(floorMesh);
 
     sceneCamera.position.copy(new THREE.Vector3(2, 2, 5))
@@ -417,12 +415,9 @@ void main() {
     }
     
     const tick = (time) => {
-        // debugMesh.rotation.x = 90;
-        // debugMesh.rotation.y = 0.0009;
-        // debugMesh.rotation.z = 0.001;
-        // debugMesh.rotation.x = time * 0.0008;
-        // debugMesh.rotation.y = time * 0.0002;
-        // debugMesh.rotation.z = time * 0.001;
+        debugMesh.rotation.x = time * 0.0001;
+        debugMesh.rotation.y = time * 0.0002;
+        debugMesh.rotation.z = time * 0.0003;
        
         renderTarget.samples = 3;
 
