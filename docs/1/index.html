@@ -31,8 +31,8 @@
     <canvas id="js-canvas"></canvas>
 </div>
 
-<script src="https://unpkg.com/three@0.143.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.143.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.144.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.144.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
     // -----------------------------------------------------------------------------
@@ -285,7 +285,7 @@ void main() {
     // for debug 
     // outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
-    // outColor.rgb = worldPosition * diffuse;
+    // outColor.rgb = worldPosition;
     // outColor.rgb = vec3(0., worldPosition.yz) * diffuse;
     // outColor.rgb = vec3(worldPosition.xy, -worldPosition.z * 1.) * diffuse;
     // outColor.rgb = vec3(sign(worldPosition.z - 1.)) * diffuse;
@@ -435,6 +435,12 @@ void main() {
         debugMesh.rotation.z = time * 0.0003;
        
         renderTarget.samples = 3;
+
+        // ref: https://github.com/mrdoob/three.js/pull/24141
+        // safari prior 15.5 needs the renderer to be cleared()
+        if ( renderTarget.samples > 0 ) {
+            renderer.clear();
+        }        
 
         // const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.projectionMatrixInverse, sceneCamera.matrixWorldInverse);
         const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.matrixWorldInverse, sceneCamera.projectionMatrixInverse);
