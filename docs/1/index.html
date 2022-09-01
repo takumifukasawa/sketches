@@ -74,6 +74,7 @@ void main() {
     const gbufferFragmentShaderText = `
 precision highp float;
 precision highp int;
+precision highp sampler2D;
 layout(location = 0) out vec4 gColor;
 layout(location = 1) out vec4 gNormal;
 // layout(location = 2) out vec4 gWorldPosition;
@@ -299,7 +300,7 @@ void main() {
     const wrapperElement = document.getElementById("js-wrapper");
     const canvasElement = document.getElementById("js-canvas");
 
-    const ratio = Math.min(window.devicePixelRatio, 1.5);
+    const ratio = Math.min(window.devicePixelRatio, 1);
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
     renderer.setPixelRatio(ratio);
