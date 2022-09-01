@@ -56,13 +56,18 @@ uniform mat4 modelMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 uniform mat3 normalMatrix;
+uniform mat3 uWorldNormalMatrix;
+
 void main() {
     vUv = uv;
     vec4 worldPosition = modelMatrix * vec4(position, 1.);
     vec4 viewPosition = viewMatrix * worldPosition;
-    mat4 worldNormalMatrix = transpose(modelMatrix);
+    
+    // mat4 worldNormalMatrix = transpose(modelMatrix);
     // vec3 transformedNormal = normalMatrix * normal;
-    vec3 transformedNormal = (worldNormalMatrix * vec4(normal, 1.)).xyz;
+    // vec3 transformedNormal = (worldNormalMatrix * vec4(normal, 1.)).xyz;
+    vec3 transformedNormal = uWorldNormalMatrix * normal;
+    
     vNormal = normalize(transformedNormal);
     // vWorldPosition = worldPosition.xyz;
     gl_Position = projectionMatrix * viewPosition;
@@ -279,7 +284,7 @@ void main() {
     outColor.rgb = color;
    
     // for debug 
-    // outColor.rgb = normal;
+    outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
     // outColor.rgb = worldPosition * diffuse;
     // outColor.rgb = vec3(0., worldPosition.yz) * diffuse;
@@ -322,7 +327,11 @@ void main() {
         return new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
-            uniforms: {},
+            uniforms: {
+                uWorldNormalMatrix: {
+                    value: new THREE.Matrix3()
+                }
+            },
             glslVersion: THREE.GLSL3,
             ...options,
         })
@@ -342,7 +351,7 @@ void main() {
         new THREE.PlaneGeometry(10, 10, 2, 2),
         createGBufferMaterial({ side: THREE.DoubleSide })
     );
-    floorMesh.rotation.x = (90 / 180) * Math.PI;
+    floorMesh.rotation.x = (-90 / 180) * Math.PI;
     scene.add(floorMesh);
 
     sceneCamera.position.copy(new THREE.Vector3(2, 2, 5))
@@ -430,6 +439,9 @@ void main() {
 
         // const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.projectionMatrixInverse, sceneCamera.matrixWorldInverse);
         const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.matrixWorldInverse, sceneCamera.projectionMatrixInverse);
+       
+        debugMesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(debugMesh.matrixWorld);
+        floorMesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(floorMesh.matrixWorld);
         
         const pointLights = [];
 
