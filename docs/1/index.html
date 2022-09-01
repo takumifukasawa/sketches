@@ -202,11 +202,18 @@ vec3 getWorldPositionFromDepth(vec2 uv, float depth) {
     // // p.z *= -1.;
     // // wp.z = wp.z * -1.;
     // return wp.xyz;
-    
+   
+    // correct 
     vec4 ndc = vec4(uv * 2. - 1., depth * 2. - 1., 1.);
     vec4 wp = uInverseViewMatrix * uInverseProjectionMatrix * ndc;
     wp.xyz /= wp.w;
     return wp.xyz;
+    
+    // vec4 ndc = vec4(uv * 2. - 1., depth * 2. - 1., 1.);
+    // vec4 vp = uInverseProjectionMatrix * ndc;
+    // vp.xyz /= vp.w;
+    // vec4 wp = uInverseViewMatrix * vp;
+    // return wp.xyz;
 }
 
 vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
