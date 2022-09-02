@@ -89,10 +89,11 @@ in vec2 vUv;
 // in vec3 vWorldPosition;
 // uniform vec3 uEmission;
 uniform float uMaterial;
+uniform vec3 uBaseColor;
 
 void main() {
     // TODO: each mesh color
-    gColor = vec4(1, 1, 1, uMaterial);
+    gColor = vec4(uBaseColor, uMaterial);
     vec3 normal = (normalize(vNormal) + 1.) * .5;
     gNormal = vec4(normal , 1.);
     // gWorldPosition = vec4(vWorldPosition, 1.);
@@ -286,7 +287,7 @@ void main() {
         unlit: 1
     };
     
-    const createGBufferMaterial = (type, materialOptions = {}, uniformOptions = {}) => {
+    const createGBufferMaterial = (type, materialOptions = {}, overrideUniformOptions = {}) => {
         return new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
@@ -297,7 +298,10 @@ void main() {
                 uMaterial: {
                     value: type === materialType.lit ? 0 : 1
                 },
-                ...uniformOptions,
+                uBaseColor: {
+                    value: new THREE.Color()
+                },
+                ...overrideUniformOptions,
             },
             glslVersion: THREE.GLSL3,
             ...materialOptions,
@@ -319,6 +323,7 @@ void main() {
         new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
         createGBufferLitMaterial()
     );
+    debugMesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
     debugMesh.position.y = 1.4;
     // debugMesh.position.x = 0;
     // debugMesh.position.y = 1;
@@ -331,9 +336,10 @@ void main() {
         new THREE.PlaneGeometry(10, 10, 2, 2),
         createGBufferLitMaterial({ side: THREE.DoubleSide })
     );
+    floorMesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
     floorMesh.rotation.x = (-90 / 180) * Math.PI;
     scene.add(floorMesh);
-    
+
     gBufferOpaqueMeshes.push(floorMesh);
 
     sceneCamera.position.copy(new THREE.Vector3(2, 2, 5))
@@ -343,26 +349,30 @@ void main() {
     
     const lightProps = [...Array(lightPropsNum)].map((i) => {
         const lightPropsGroup = new THREE.Object3D();
-        const lightPropsMesh = new THREE.Mesh(
-            new THREE.SphereGeometry(0.1, 8, 8),
-            // createGBufferLitMaterial(),
-            createGBufferUnlitMaterial()
-        );
-        lightPropsGroup.add(lightPropsMesh);
+
         const color = (new THREE.Color()).setHSL(Math.random(), 1, 0.5);
         // const color = (new THREE.Color(1, 0, 0))
         // const color = new THREE.Color(1, 1, 1);
         const intensity = 0.4;
-        lightPropsGroup.add(new THREE.PointLight(color, intensity, 100));
         const p = new THREE.Vector3().randomDirection().multiplyScalar(5);
         // p.x = 2;
         // p.y = 0.25;
         // p.z = 2;
         // lightProps.position.copy(new THREE.Vector3(3, 3, 0))
         lightPropsGroup.position.copy(p)
+        lightPropsGroup.add(new THREE.PointLight(color, intensity, 100));
+
+        const lightPropMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.1, 8, 8),
+            // createGBufferLitMaterial(),
+            createGBufferUnlitMaterial()
+        );
+        lightPropMesh.material.uniforms.uBaseColor.value = color;
+        lightPropsGroup.add(lightPropMesh);       
+        
         scene.add(lightPropsGroup);
 
-        gBufferOpaqueMeshes.push(lightPropsMesh);
+        gBufferOpaqueMeshes.push(lightPropMesh);
         
         return lightPropsGroup;
     });
