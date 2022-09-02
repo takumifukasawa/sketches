@@ -47,6 +47,8 @@
     // https://enginetrouble.net/2016/10/reconstructing-world-position-from-depth-2016.html
     // -----------------------------------------------------------------------------
 
+    const lightPropsNum = 16;
+    
     const gbufferVertexShaderText = `
 in vec3 position;
 in vec3 normal;
@@ -87,7 +89,7 @@ in vec2 vUv;
 // uniform vec3 uEmission;
 void main() {
     // TODO: each mesh color
-    gColor = vec4(1, 0, 0, 1);
+    gColor = vec4(1, 1, 1, 1);
     vec3 normal = (normalize(vNormal) + 1.) * .5;
     gNormal = vec4(normal , 1.);
     // gWorldPosition = vec4(vWorldPosition, 1.);
@@ -136,7 +138,7 @@ uniform sampler2D uNormal;
 uniform sampler2D uDepth;
 uniform Camera uCamera;
 // uniform sampler2D uWorldPosition;
-uniform PointLight[1] uPointLights;
+uniform PointLight[${lightPropsNum}] uPointLights;
 uniform float uCameraNear;
 uniform float uCameraFar;
 uniform mat4 uInverseViewMatrix;
@@ -161,7 +163,8 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     vec3 HalfV = normalize(PtoL + PtoE);
     vec3 reflectV = reflect(-PtoL, surface.normal);
     float distPtoL = length(rawPtoL);
-    float attenuation = pointLight.intensity / (distPtoL * distPtoL);
+    float attenuation = pointLight.intensity / (1.0 + 0.1 * distPtoL + 0.01 * distPtoL * distPtoL);
+    // float attenuation = clamp(0., 1., pointLight.intensity / (1. + distPtoL * distPtoL));
     float angle = dot(surface.normal, PtoL);
     
     // diffuse
@@ -170,6 +173,8 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     {
         float diffuseRate = clamp(0., 1., dot(surface.normal, PtoL));
         diffuseColor = surface.diffuse * pointLight.color * diffuseRate * attenuation;
+        // diffuseColor = vec3(diffuseRate);
+        // diffuseColor = vec3(attenuation);
     }
     
     // specular
@@ -186,7 +191,11 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     }
     
     // result
+    // vec3 resultColor = diffuseColor;
+    // vec3 resultColor = specularColor;
     vec3 resultColor = diffuseColor + specularColor;
+    
+    resultColor = clamp(vec3(0.), vec3(1.), resultColor);
     
     return resultColor;
 }
@@ -203,7 +212,7 @@ void main() {
     Camera camera = Camera(uCamera.position);
     
     vec3 color = vec3(0.);
-    for(int i = 0; i < 1; i++)
+    for(int i = 0; i < ${lightPropsNum}; i++)
     {
         PointLight pointLight = uPointLights[i];
         color += calcPointLight(pointLight, surface, camera);
@@ -213,7 +222,7 @@ void main() {
    
     // for debug 
     // outColor.rgb = normal;
-    // outColor.rgb = vec3(depth);
+    // outColor.rgb = vec3(diffuse);
     // outColor.rgb = worldPosition;
    
     // mask
@@ -224,7 +233,7 @@ void main() {
     const wrapperElement = document.getElementById("js-wrapper");
     const canvasElement = document.getElementById("js-canvas");
 
-    const ratio = Math.min(window.devicePixelRatio, 1);
+    const ratio = Math.min(window.devicePixelRatio, 1.5);
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
     renderer.setPixelRatio(ratio);
@@ -277,13 +286,16 @@ void main() {
     }
     
     const debugMesh = new THREE.Mesh(
-        // new THREE.BoxGeometry(1, 1, 1),
+        // new THREE.BoxGeometry(2, 2, 2),
         // new THREE.SphereGeometry(1, 32, 32),
         // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
         new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
         createGBufferLitMaterial()
     );
-    debugMesh.position.y = 1.3;
+    debugMesh.position.y = 1.4;
+    // debugMesh.position.x = 0;
+    // debugMesh.position.y = 1;
+    // debugMesh.position.z = 0;
     scene.add(debugMesh);
     
     gBufferOpaqueMeshes.push(debugMesh);
@@ -301,18 +313,31 @@ void main() {
     sceneCamera.lookAt(debugMesh.position);
 
     const orbitControls = new THREE.OrbitControls(sceneCamera, canvasElement);
+    
+    const lightProps = [...Array(lightPropsNum)].map((i) => {
+        const lightPropsGroup = new THREE.Object3D();
+        const lightPropsMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.1, 8, 8),
+            createGBufferLitMaterial(),
+        );
+        lightPropsGroup.add(lightPropsMesh);
+        const color = (new THREE.Color()).setHSL(Math.random(), 1, 0.5);
+        // const color = (new THREE.Color(1, 0, 0))
+        // const color = new THREE.Color(1, 1, 1);
+        const intensity = 0.4;
+        lightPropsGroup.add(new THREE.PointLight(color, intensity, 100));
+        const p = new THREE.Vector3().randomDirection().multiplyScalar(5);
+        // p.x = 2;
+        // p.y = 0.25;
+        // p.z = 2;
+        // lightProps.position.copy(new THREE.Vector3(3, 3, 0))
+        lightPropsGroup.position.copy(p)
+        scene.add(lightPropsGroup);
 
-    const lightProps = new THREE.Object3D();
-    const lightPropsMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.1, 8, 8),
-        createGBufferLitMaterial(),
-    );
-    lightProps.add(lightPropsMesh);
-    lightProps.add(new THREE.PointLight(0xffffff, 10, 100));
-    lightProps.position.copy(new THREE.Vector3(3, 3, 0))
-    scene.add(lightProps);
-
-    gBufferOpaqueMeshes.push(lightPropsMesh);
+        gBufferOpaqueMeshes.push(lightPropsMesh);
+        
+        return lightPropsGroup;
+    });
 
     const postprocessScene = new THREE.Scene();
     const postprocessCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -383,11 +408,17 @@ void main() {
         // safari prior 15.5 needs the renderer to be cleared()
         if ( renderTarget.samples > 0 ) {
             renderer.clear();
-        }        
+        }
+
+        orbitControls.update();
 
         // const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.projectionMatrixInverse, sceneCamera.matrixWorldInverse);
         const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.matrixWorldInverse, sceneCamera.projectionMatrixInverse);
-      
+     
+        lightProps.forEach((lightPropsGroup, i) => {
+            lightPropsGroup.position.y = Math.sin(time * 2 / 1000 + i * 100) * 0.6 + 0.7;
+        });
+        
         gBufferOpaqueMeshes.forEach((mesh) => {
             mesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(mesh.matrixWorld);
             mesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(mesh.matrixWorld);
@@ -419,8 +450,6 @@ void main() {
         // console.log("========")
         // console.log(sceneCamera.matrixWorldInverse)
         // console.log(sceneCamera.projectionMatrixInverse)
-       
-        orbitControls.update(); 
         
         renderer.setRenderTarget(renderTarget);
         renderer.render(scene, sceneCamera);
