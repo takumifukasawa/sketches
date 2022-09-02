@@ -233,7 +233,7 @@ void main() {
     const wrapperElement = document.getElementById("js-wrapper");
     const canvasElement = document.getElementById("js-canvas");
 
-    const ratio = Math.min(window.devicePixelRatio, 1.5);
+    const ratio = Math.min(window.devicePixelRatio, 1);
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
     renderer.setPixelRatio(ratio);
