@@ -121,7 +121,7 @@ layout(location = 0) out vec4 outColor;
 in vec2 vUv;
 
 struct Surface {
-    vec3 diffuse;
+    vec3 baseColor;
     vec3 normal;
     vec3 worldPosition;
 };
@@ -167,8 +167,8 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     vec3 HalfV = normalize(PtoL + PtoE);
     vec3 reflectV = reflect(-PtoL, surface.normal);
     float distPtoL = length(rawPtoL);
-    float attenuation = pointLight.intensity / (1.0 + 0.1 * distPtoL + 0.01 * distPtoL * distPtoL);
-    // float attenuation = clamp(0., 1., pointLight.intensity / (1. + distPtoL * distPtoL));
+    // float attenuation = pointLight.intensity / (1.0 + 0.1 * distPtoL + 0.01 * distPtoL * distPtoL);
+    float attenuation = clamp(0., 1., pointLight.intensity / (1. + distPtoL * distPtoL));
     float angle = dot(surface.normal, PtoL);
     
     // diffuse
@@ -176,7 +176,7 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     if(angle > 0.)
     {
         float diffuseRate = clamp(0., 1., dot(surface.normal, PtoL));
-        diffuseColor = surface.diffuse * pointLight.color * diffuseRate * attenuation;
+        diffuseColor = surface.baseColor * pointLight.color * diffuseRate * attenuation;
         // diffuseColor = vec3(diffuseRate);
         // diffuseColor = vec3(attenuation);
     }
@@ -205,15 +205,15 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
 }
 
 void main() {
-    vec4 rawDiffuse = texture(uDiffuse, vUv);
-    vec3 diffuse = rawDiffuse.xyz;
-    float material = rawDiffuse.a;
+    vec4 gBufferColor = texture(uDiffuse, vUv);
+    vec3 baseColor = gBufferColor.xyz;
+    float material = gBufferColor.a;
     vec3 normal = texture(uNormal, vUv).rgb * 2. - 1.;
     normal = normalize(normal);
     float depth = texture(uDepth, vUv).x;
     vec3 worldPosition = getWorldPositionFromDepth(vUv, depth);
     
-    Surface surface = Surface(diffuse, normal, worldPosition);
+    Surface surface = Surface(baseColor, normal, worldPosition);
     Camera camera = Camera(uCamera.position);
     
     vec3 color = vec3(0.);
@@ -226,14 +226,13 @@ void main() {
             color += calcPointLight(pointLight, surface, camera);
         }
     } else { // unlit
-        color += diffuse;
+        color += baseColor;
     }
 
     outColor.rgb = color;
    
     // for debug 
     // outColor.rgb = normal;
-    // outColor.rgb = vec3(diffuse);
     // outColor.rgb = worldPosition;
    
     // mask
