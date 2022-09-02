@@ -88,9 +88,11 @@ in vec3 vNormal;
 in vec2 vUv;
 // in vec3 vWorldPosition;
 // uniform vec3 uEmission;
+uniform float uMaterial;
+
 void main() {
     // TODO: each mesh color
-    gColor = vec4(1, 1, 1, 0);
+    gColor = vec4(1, 1, 1, uMaterial);
     vec3 normal = (normalize(vNormal) + 1.) * .5;
     gNormal = vec4(normal , 1.);
     // gWorldPosition = vec4(vWorldPosition, 1.);
@@ -201,24 +203,31 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     return resultColor;
 }
 
-
 void main() {
-    vec3 diffuse = texture(uDiffuse, vUv).rgb;
+    vec4 rawDiffuse = texture(uDiffuse, vUv);
+    vec3 diffuse = rawDiffuse.xyz;
+    float material = rawDiffuse.a;
     vec3 normal = texture(uNormal, vUv).rgb * 2. - 1.;
     normal = normalize(normal);
     float depth = texture(uDepth, vUv).x;
     vec3 worldPosition = getWorldPositionFromDepth(vUv, depth);
-    Surface surface = Surface(diffuse, normal, worldPosition);
     
+    Surface surface = Surface(diffuse, normal, worldPosition);
     Camera camera = Camera(uCamera.position);
     
     vec3 color = vec3(0.);
-    for(int i = 0; i < ${lightPropsNum}; i++)
+   
+    if (material < .5) // lit
     {
-        PointLight pointLight = uPointLights[i];
-        color += calcPointLight(pointLight, surface, camera);
+        for(int i = 0; i < ${lightPropsNum}; i++)
+        {
+            PointLight pointLight = uPointLights[i];
+            color += calcPointLight(pointLight, surface, camera);
+        }
+    } else { // unlit
+        color += diffuse;
     }
-    
+
     outColor.rgb = color;
    
     // for debug 
@@ -272,7 +281,12 @@ void main() {
     
     let width, height;
     
-    const createGBufferLitMaterial = (options = {}) => {
+    const materialType = {
+        lit: 0,
+        unlit: 1
+    };
+    
+    const createGBufferMaterial = (type, materialOptions = {}, uniformOptions = {}) => {
         return new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
@@ -280,10 +294,22 @@ void main() {
                 uWorldNormalMatrix: {
                     value: new THREE.Matrix3()
                 },
+                uMaterial: {
+                    value: type === materialType.lit ? 0 : 1
+                },
+                ...uniformOptions,
             },
             glslVersion: THREE.GLSL3,
-            ...options,
+            ...materialOptions,
         })
+    }
+    
+    const createGBufferLitMaterial = (materialOptions = {}, uniformOptions = {}) => {
+        return createGBufferMaterial(materialType.lit, materialOptions, uniformOptions)
+    }
+    
+    const createGBufferUnlitMaterial = (materialOptions = {}, uniformOptions = {}) => {
+        return createGBufferMaterial(materialType.unlit, materialOptions, uniformOptions)
     }
     
     const debugMesh = new THREE.Mesh(
@@ -319,7 +345,8 @@ void main() {
         const lightPropsGroup = new THREE.Object3D();
         const lightPropsMesh = new THREE.Mesh(
             new THREE.SphereGeometry(0.1, 8, 8),
-            createGBufferLitMaterial(),
+            // createGBufferLitMaterial(),
+            createGBufferUnlitMaterial()
         );
         lightPropsGroup.add(lightPropsMesh);
         const color = (new THREE.Color()).setHSL(Math.random(), 1, 0.5);
