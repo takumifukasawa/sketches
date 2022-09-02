@@ -31,8 +31,12 @@
     <canvas id="js-canvas"></canvas>
 </div>
 
+<!--
 <script src="https://unpkg.com/three@0.144.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.144.0/examples/js/controls/OrbitControls.js"></script>
+-->
+<script src="./three.min.js"></script>
+<script src="./OrbitControls.js"></script>
 
 <script>
     // -----------------------------------------------------------------------------
@@ -74,13 +78,13 @@ void main() {
     const gbufferFragmentShaderText = `
 precision highp float;
 precision highp int;
-precision highp sampler2D;
 layout(location = 0) out vec4 gColor;
 layout(location = 1) out vec4 gNormal;
 // layout(location = 2) out vec4 gWorldPosition;
 in vec3 vNormal;
 in vec2 vUv;
 // in vec3 vWorldPosition;
+// uniform vec3 uEmission;
 void main() {
     // TODO: each mesh color
     gColor = vec4(1, 0, 0, 1);
@@ -304,14 +308,28 @@ void main() {
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
     renderer.setPixelRatio(ratio);
+   
+    const gBufferPaths = [
+        {
+            name: "diffuse",
+        },
+        {
+            name: "normal"
+        },
+        // {
+        //     name: "shading model"
+        // }
+    ]
     
-    const renderTarget = new THREE.WebGLMultipleRenderTargets(1, 1, 2);
+    const renderTarget = new THREE.WebGLMultipleRenderTargets(1, 1, gBufferPaths.length);
     renderTarget.texture.forEach(texture => {
         texture.minFilter = THREE.NearestFilter;
         texture.magFilter = THREE.NearestFilter;
     });
-    renderTarget.texture[0].name = "diffuse";
-    renderTarget.texture[1].name = "normal";
+    gBufferPaths.forEach((({ name }, i) => {
+        renderTarget.texture[i].name = name;
+    }));
+    // renderTarget.texture[2].name = "emission";
     // renderTarget.texture[2].name = "worldPosition";
     
     renderTarget.depthTexture = new THREE.DepthTexture();
@@ -320,16 +338,18 @@ void main() {
     scene.background = new THREE.Color(0x000000);
     const sceneCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
     
+    const gBufferOpaqueMeshes = [];
+    
     let width, height;
     
-    const createGBufferMaterial = (options = {}) => {
+    const createGBufferLitMaterial = (options = {}) => {
         return new THREE.RawShaderMaterial({
             vertexShader: gbufferVertexShaderText,
             fragmentShader: gbufferFragmentShaderText,
             uniforms: {
                 uWorldNormalMatrix: {
                     value: new THREE.Matrix3()
-                }
+                },
             },
             glslVersion: THREE.GLSL3,
             ...options,
@@ -341,17 +361,21 @@ void main() {
         // new THREE.SphereGeometry(1, 32, 32),
         // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
         new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
-        createGBufferMaterial()
+        createGBufferLitMaterial()
     );
     debugMesh.position.y = 1.3;
     scene.add(debugMesh);
     
+    gBufferOpaqueMeshes.push(debugMesh);
+    
     const floorMesh = new THREE.Mesh(
         new THREE.PlaneGeometry(10, 10, 2, 2),
-        createGBufferMaterial({ side: THREE.DoubleSide })
+        createGBufferLitMaterial({ side: THREE.DoubleSide })
     );
     floorMesh.rotation.x = (-90 / 180) * Math.PI;
     scene.add(floorMesh);
+    
+    gBufferOpaqueMeshes.push(floorMesh);
 
     sceneCamera.position.copy(new THREE.Vector3(2, 2, 5))
     sceneCamera.lookAt(debugMesh.position);
@@ -359,17 +383,16 @@ void main() {
     const orbitControls = new THREE.OrbitControls(sceneCamera, canvasElement);
 
     const lightProps = new THREE.Object3D();
-    lightProps.add(new THREE.Mesh(
+    const lightPropsMesh = new THREE.Mesh(
         new THREE.SphereGeometry(0.1, 8, 8),
-        new THREE.RawShaderMaterial({
-            vertexShader: gbufferVertexShaderText,
-            fragmentShader: gbufferFragmentShaderText,
-            uniforms: {},
-        }),
-    ));
+        createGBufferLitMaterial(),
+    );
+    lightProps.add(lightPropsMesh);
     lightProps.add(new THREE.PointLight(0xffffff, 10, 100));
     lightProps.position.copy(new THREE.Vector3(3, 3, 0))
     scene.add(lightProps);
+
+    gBufferOpaqueMeshes.push(lightPropsMesh);
 
     const postprocessScene = new THREE.Scene();
     const postprocessCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -434,7 +457,7 @@ void main() {
         debugMesh.rotation.y = time * 0.0002;
         debugMesh.rotation.z = time * 0.0003;
        
-        renderTarget.samples = 3;
+        renderTarget.samples = 2;
 
         // ref: https://github.com/mrdoob/three.js/pull/24141
         // safari prior 15.5 needs the renderer to be cleared()
@@ -444,9 +467,11 @@ void main() {
 
         // const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.projectionMatrixInverse, sceneCamera.matrixWorldInverse);
         const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.matrixWorldInverse, sceneCamera.projectionMatrixInverse);
-       
-        debugMesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(debugMesh.matrixWorld);
-        floorMesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(floorMesh.matrixWorld);
+      
+        gBufferOpaqueMeshes.forEach((mesh) => {
+            mesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(mesh.matrixWorld);
+            mesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(mesh.matrixWorld);
+        });
         
         const pointLights = [];
 
