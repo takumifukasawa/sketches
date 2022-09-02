@@ -108,15 +108,7 @@ void main() {
 precision highp float;
 precision highp int;
 
-#include <packing>
-
-// float viewZToOrthographicDepth( const in float viewZ, const in float near, const in float far ) {
-//   return ( viewZ + near ) / ( near - far );
-// }
-// 
-// float perspectiveDepthToViewZ( const in float invClipZ, const in float near, const in float far ) {
-//   return ( near * far ) / ( ( far - near ) * invClipZ - far );
-// }
+// #include <packing>
 
 layout(location = 0) out vec4 outColor;
 
@@ -153,75 +145,11 @@ uniform mat4 uInverseProjectionMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 
-float readDepth( sampler2D depthSampler, vec2 coord ) {
-    float fragCoordZ = texture( depthSampler, coord ).x;
-    float viewZ = perspectiveDepthToViewZ( fragCoordZ, uCameraNear, uCameraFar );
-    return viewZToOrthographicDepth( viewZ, uCameraNear, uCameraFar );
-}
-
-vec3 reconstructWorldPositionFromDepth(vec2 uv, float depth)
-{
-    vec4 ndc = vec4(
-        // (uv.x - .5) * 2.,
-        // (uv.y - .5) * 2.,
-        uv.xy * 2. - 1.,
-        (depth - .5) * 2.,
-        // depth,
-        1.
-    );
-    vec4 clip = uInverseProjectionMatrix * ndc;
-    clip.xyz /= clip.w;
-    vec4 view = uInverseViewMatrix * clip;
-    vec3 result = view.xyz;
-    result.z = result.z * -1. - 1.;
-    return result;
-
-    // float d = depth * 2. - 1.;
-    // d = depth;
-    // vec4 projectedPosition = vec4(uv.xy * 2. - 1., d, 1.);
-    // vec4 viewSpacePosition = uInverseProjectionMatrix * projectedPosition;
-    // viewSpacePosition.xyz /= viewSpacePosition.w;
-    // vec4 worldSpacePosition = uInverseViewMatrix * viewSpacePosition;
-    // // worldSpacePosition.xyz / worldSpacePosition.w;
-    // // vec3 p = worldSpacePosition.xyz * vec3(1., 1., -1.);
-    // vec3 p = worldSpacePosition.xyz;
-    // // p.z = p.z * -1. - 1.;
-    // // p.z = p.z * -1.;
-    // p.z = p.z * -1. - 1.; // TODO: why?
-    // return p;
-    // // return worldSpacePosition.xyz;
-}
-
 vec3 getWorldPositionFromDepth(vec2 uv, float depth) {
-    // vec4 ndc = vec4( uv * 2. - 1., depth, 1. );
-    // // ndc.y *= -1.0f;
-    // vec4 wp = uInverseViewMatrix * uInverseProjectionMatrix * ndc;
-    // vec3 p = ( wp / wp.w ).xyz;
-    // // p.z *= -1.;
-    // return p;
-
-    // vec4 ndc = vec4( uv * 2. - 1., depth * 2. - 1., 1. );
-    // // ndc.z *= -1.0f;
-    // vec4 vp = uInverseProjectionMatrix * ndc;
-    // vp.xyz /= vp.w;
-    // vec4 wp = uInverseViewMatrix * vp;
-    // // wp.xyz /= wp.w;
-    // // vec3 p = ( wp / wp.w ).xyz;
-    // // p.z *= -1.;
-    // // wp.z = wp.z * -1.;
-    // return wp.xyz;
-   
-    // correct 
     vec4 ndc = vec4(uv * 2. - 1., depth * 2. - 1., 1.);
     vec4 wp = uInverseViewMatrix * uInverseProjectionMatrix * ndc;
     wp.xyz /= wp.w;
     return wp.xyz;
-    
-    // vec4 ndc = vec4(uv * 2. - 1., depth * 2. - 1., 1.);
-    // vec4 vp = uInverseProjectionMatrix * ndc;
-    // vp.xyz /= vp.w;
-    // vec4 wp = uInverseViewMatrix * vp;
-    // return wp.xyz;
 }
 
 vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
@@ -268,10 +196,7 @@ void main() {
     vec3 diffuse = texture(uDiffuse, vUv).rgb;
     vec3 normal = texture(uNormal, vUv).rgb * 2. - 1.;
     normal = normalize(normal);
-    float readedDepth = readDepth(uDepth, vUv);
     float depth = texture(uDepth, vUv).x;
-    // float depth = unpackRGBAToDepth(texture(uDepth, vUv));
-    // vec3 worldPosition = reconstructWorldPositionFromDepth(vUv, depth);
     vec3 worldPosition = getWorldPositionFromDepth(vUv, depth);
     Surface surface = Surface(diffuse, normal, worldPosition);
     
@@ -290,12 +215,7 @@ void main() {
     // outColor.rgb = normal;
     // outColor.rgb = vec3(depth);
     // outColor.rgb = worldPosition;
-    // outColor.rgb = vec3(0., worldPosition.yz) * diffuse;
-    // outColor.rgb = vec3(worldPosition.xy, -worldPosition.z * 1.) * diffuse;
-    // outColor.rgb = vec3(sign(worldPosition.z - 1.)) * diffuse;
-    // outColor.rgb = mix(diffuse, normal, step(0.5, vUv.x));
-    // outColor.a = 1.;
-    
+   
     // mask
     outColor.rgb *= sign(1. - depth);
     outColor.a = 1.;
