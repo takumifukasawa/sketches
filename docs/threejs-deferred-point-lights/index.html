@@ -155,8 +155,8 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     vec3 HalfV = normalize(PtoL + PtoE);
     vec3 reflectV = reflect(-PtoL, surface.normal);
     float distPtoL = length(rawPtoL);
-    float attenuation = pointLight.intensity / (1.0 + 0.1 * distPtoL + 0.01 * distPtoL * distPtoL);
-    // float attenuation = pointLight.intensity / (1. + distPtoL * distPtoL);
+    // float attenuation = pointLight.intensity / (1.0 + 0.1 * distPtoL + 0.01 * distPtoL * distPtoL);
+    float attenuation = pointLight.intensity / (1. + distPtoL * distPtoL);
     attenuation = clamp(attenuation, 0., 1.);
     float angle = dot(surface.normal, PtoL);
     
@@ -393,10 +393,11 @@ void main() {
     scene.add(backgroundMesh);
     gBufferOpaqueMeshes.push(backgroundMesh);
 
-    sceneCamera.position.copy(new THREE.Vector3(2, 2, 5))
+    sceneCamera.position.copy(new THREE.Vector3(3, 3, 7))
     sceneCamera.lookAt(debugMesh.position);
 
     const orbitControls = new THREE.OrbitControls(sceneCamera, canvasElement);
+    // orbitControls.enableZoom = false;
     
     const lightProps = [...Array(lightPropsNum)].map((i) => {
         const lightPropsGroup = new THREE.Object3D();
@@ -404,7 +405,7 @@ void main() {
         const color = (new THREE.Color()).setHSL(Math.random(), 1, 0.5);
         // const color = (new THREE.Color(1, 0, 0))
         // const color = new THREE.Color(1, 1, 1);
-        const intensity = 0.1;
+        const intensity = 0.8;
         const p = new THREE.Vector3().randomDirection().multiplyScalar(5);
         // p.x = 2;
         // p.y = 0.25;
@@ -415,8 +416,8 @@ void main() {
 
         const lightPropMesh = new THREE.Mesh(
             new THREE.SphereGeometry(0.1, 8, 8),
-            createGBufferLitMaterial(),
-            // createGBufferUnlitMaterial()
+            // createGBufferLitMaterial(),
+            createGBufferUnlitMaterial()
         );
         lightPropMesh.material.uniforms.uBaseColor.value = color;
         lightPropsGroup.add(lightPropMesh);       
@@ -509,9 +510,9 @@ void main() {
             
             // lightPropsGroup.position.y = Math.sin(time * 0.5 / 1000 + i * 100) * 4.5;
             
-            lightPropsGroup.position.x = Math.sin(time * 0.25 / 1000 + i * 40) * 4.5;
-            lightPropsGroup.position.y = Math.sin(time * 0.32 / 1000 + i * 60) * 4.5;
-            lightPropsGroup.position.z = Math.sin(time * 0.38 / 1000 + i * 80) * 4.5;
+            lightPropsGroup.position.x = Math.sin((time * 0.35 + i * 10) / 1000 + i * 40) * 4.5;
+            lightPropsGroup.position.y = Math.sin((time * 0.52 + i * 20) / 1000 + i * 60) * 4.5;
+            lightPropsGroup.position.z = Math.sin((time * 0.68 + i * 30) / 1000 + i * 80) * 4.5;
         });
         
         gBufferOpaqueMeshes.forEach((mesh) => {
