@@ -154,8 +154,8 @@ vec3 calcPointLight(PointLight pointLight, Surface surface, Camera camera) {
     vec3 HalfV = normalize(PtoL + PtoE);
     vec3 reflectV = reflect(-PtoL, surface.normal);
     float distPtoL = length(rawPtoL);
-    // float attenuation = pointLight.intensity / (1.0 + 0.1 * distPtoL + 0.01 * distPtoL * distPtoL);
-    float attenuation = pointLight.intensity / (1. + distPtoL * distPtoL);
+    float attenuation = pointLight.intensity / (1.0 + 0.1 * distPtoL + 0.01 * distPtoL * distPtoL);
+    // float attenuation = pointLight.intensity / (1. + distPtoL * distPtoL);
     attenuation = clamp(attenuation, 0., 1.);
     float angle = dot(surface.normal, PtoL);
     
@@ -306,6 +306,36 @@ void main() {
         return createGBufferMaterial(materialType.unlit, materialOptions, uniformOptions)
     }
     
+    const createInsideBoxMesh = () => {
+        const root = new THREE.Object3D();
+        const createMesh = (scale, posV, degV) => {
+            const mesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(scale, scale, 2, 2),
+                createGBufferLitMaterial(),
+                // createGBufferUnlitMaterial(),
+            );
+            root.add(mesh);
+            mesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
+            // mesh.rotation.copy();
+            mesh.rotation.x = (degV.x / 180) * Math.PI;
+            mesh.rotation.y = (degV.y / 180) * Math.PI;
+            mesh.rotation.z = (degV.z / 180) * Math.PI;
+            mesh.position.copy(posV);
+            gBufferOpaqueMeshes.push(mesh)
+            return mesh;
+        }
+        const scale = 10;
+        createMesh(scale, new THREE.Vector3(0, scale / 2, 0), new THREE.Vector3(90, 0, 0)); // top
+        createMesh(scale, new THREE.Vector3(0, -scale / 2, 0), new THREE.Vector3(-90, 0, 0)); // bottom
+        createMesh(scale, new THREE.Vector3(-scale / 2, 0, 0), new THREE.Vector3(0, 90, 0)); // left
+        createMesh(scale, new THREE.Vector3(scale / 2, 0, 0), new THREE.Vector3(0, -90, 0)); // right
+        createMesh(scale, new THREE.Vector3(0, 0, scale / 2), new THREE.Vector3(0, 180, 0)); // front
+        createMesh(scale, new THREE.Vector3(0, 0, -scale / 2), new THREE.Vector3(0, 0, 0)); // back
+        return root;
+    }
+    const insideBoxMesh = createInsideBoxMesh();
+    scene.add(insideBoxMesh);
+    
     // const skyboxMesh = new THREE.Mesh(
     //     new THREE.SphereGeometry(2, 16, 16),
     //     // new THREE.BoxGeometry(8, 8, 8),
@@ -330,14 +360,14 @@ void main() {
     
     gBufferOpaqueMeshes.push(debugMesh);
     
-    const floorMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(10, 10, 2, 2),
-        createGBufferLitMaterial({ side: THREE.DoubleSide })
-    );
-    floorMesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
-    floorMesh.rotation.x = (-90 / 180) * Math.PI;
-    scene.add(floorMesh);
-    gBufferOpaqueMeshes.push(floorMesh);
+    // const floorMesh = new THREE.Mesh(
+    //     new THREE.PlaneGeometry(10, 10, 2, 2),
+    //     createGBufferLitMaterial({ side: THREE.DoubleSide })
+    // );
+    // floorMesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
+    // floorMesh.rotation.x = (-90 / 180) * Math.PI;
+    // scene.add(floorMesh);
+    // gBufferOpaqueMeshes.push(floorMesh);
 
     // fake bg
     const backgroundMesh = new THREE.Mesh(
@@ -360,7 +390,7 @@ void main() {
         const color = (new THREE.Color()).setHSL(Math.random(), 1, 0.5);
         // const color = (new THREE.Color(1, 0, 0))
         // const color = new THREE.Color(1, 1, 1);
-        const intensity = 0.4;
+        const intensity = 0.1;
         const p = new THREE.Vector3().randomDirection().multiplyScalar(5);
         // p.x = 2;
         // p.y = 0.25;
@@ -461,7 +491,8 @@ void main() {
         const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.matrixWorldInverse, sceneCamera.projectionMatrixInverse);
      
         lightProps.forEach((lightPropsGroup, i) => {
-            lightPropsGroup.position.y = Math.sin(time * 2 / 1000 + i * 100) * 0.6 + 0.7;
+            // lightPropsGroup.position.y = Math.sin(time * 2 / 1000 + i * 100) * 0.6 + 0.7;
+            lightPropsGroup.position.y = Math.sin(time * 0.5 / 1000 + i * 100) * 4.5;
         });
         
         gBufferOpaqueMeshes.forEach((mesh) => {
