@@ -37,6 +37,7 @@
 -->
 <script src="./three.min.js"></script>
 <script src="./OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.144.0/examples/js/loaders/OBJLoader.js"></script>
 
 <script>
     // -----------------------------------------------------------------------------
@@ -234,7 +235,7 @@ void main() {
     const wrapperElement = document.getElementById("js-wrapper");
     const canvasElement = document.getElementById("js-canvas");
 
-    const ratio = Math.min(window.devicePixelRatio, 1);
+    const ratio = Math.min(window.devicePixelRatio, 1.5);
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvasElement });
     renderer.setPixelRatio(ratio);
@@ -308,30 +309,43 @@ void main() {
     
     const createInsideBoxMesh = () => {
         const root = new THREE.Object3D();
-        const createMesh = (scale, posV, degV) => {
-            const mesh = new THREE.Mesh(
-                new THREE.PlaneGeometry(scale, scale, 2, 2),
-                createGBufferLitMaterial(),
-                // createGBufferUnlitMaterial(),
-            );
+        const loader = new THREE.OBJLoader();
+        loader.load("flip-normal-cube.obj", (obj) => {
+            const geometry = obj.children[0].geometry;
+            const material = createGBufferLitMaterial();
+            material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.scale.copy(new THREE.Vector3(5, 5, 5));
             root.add(mesh);
-            mesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
-            // mesh.rotation.copy();
-            mesh.rotation.x = (degV.x / 180) * Math.PI;
-            mesh.rotation.y = (degV.y / 180) * Math.PI;
-            mesh.rotation.z = (degV.z / 180) * Math.PI;
-            mesh.position.copy(posV);
-            gBufferOpaqueMeshes.push(mesh)
-            return mesh;
-        }
-        const scale = 10;
-        createMesh(scale, new THREE.Vector3(0, scale / 2, 0), new THREE.Vector3(90, 0, 0)); // top
-        createMesh(scale, new THREE.Vector3(0, -scale / 2, 0), new THREE.Vector3(-90, 0, 0)); // bottom
-        createMesh(scale, new THREE.Vector3(-scale / 2, 0, 0), new THREE.Vector3(0, 90, 0)); // left
-        createMesh(scale, new THREE.Vector3(scale / 2, 0, 0), new THREE.Vector3(0, -90, 0)); // right
-        createMesh(scale, new THREE.Vector3(0, 0, scale / 2), new THREE.Vector3(0, 180, 0)); // front
-        createMesh(scale, new THREE.Vector3(0, 0, -scale / 2), new THREE.Vector3(0, 0, 0)); // back
+            gBufferOpaqueMeshes.push(mesh);
+        });
         return root;
+
+        // const root = new THREE.Object3D();
+        // const createMesh = (scale, posV, degV) => {
+        //     const mesh = new THREE.Mesh(
+        //         new THREE.PlaneGeometry(scale, scale, 2, 2),
+        //         createGBufferLitMaterial(),
+        //         // createGBufferUnlitMaterial(),
+        //     );
+        //     root.add(mesh);
+        //     mesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
+        //     // mesh.rotation.copy();
+        //     mesh.rotation.x = (degV.x / 180) * Math.PI;
+        //     mesh.rotation.y = (degV.y / 180) * Math.PI;
+        //     mesh.rotation.z = (degV.z / 180) * Math.PI;
+        //     mesh.position.copy(posV);
+        //     gBufferOpaqueMeshes.push(mesh)
+        //     return mesh;
+        // }
+        // const scale = 10;
+        // createMesh(scale, new THREE.Vector3(0, scale / 2, 0), new THREE.Vector3(90, 0, 0)); // top
+        // createMesh(scale, new THREE.Vector3(0, -scale / 2, 0), new THREE.Vector3(-90, 0, 0)); // bottom
+        // createMesh(scale, new THREE.Vector3(-scale / 2, 0, 0), new THREE.Vector3(0, 90, 0)); // left
+        // createMesh(scale, new THREE.Vector3(scale / 2, 0, 0), new THREE.Vector3(0, -90, 0)); // right
+        // createMesh(scale, new THREE.Vector3(0, 0, scale / 2), new THREE.Vector3(0, 180, 0)); // front
+        // createMesh(scale, new THREE.Vector3(0, 0, -scale / 2), new THREE.Vector3(0, 0, 0)); // back
+        // return root;
     }
     const insideBoxMesh = createInsideBoxMesh();
     scene.add(insideBoxMesh);
@@ -492,7 +506,12 @@ void main() {
      
         lightProps.forEach((lightPropsGroup, i) => {
             // lightPropsGroup.position.y = Math.sin(time * 2 / 1000 + i * 100) * 0.6 + 0.7;
-            lightPropsGroup.position.y = Math.sin(time * 0.5 / 1000 + i * 100) * 4.5;
+            
+            // lightPropsGroup.position.y = Math.sin(time * 0.5 / 1000 + i * 100) * 4.5;
+            
+            lightPropsGroup.position.x = Math.sin(time * 0.25 / 1000 + i * 40) * 4.5;
+            lightPropsGroup.position.y = Math.sin(time * 0.32 / 1000 + i * 60) * 4.5;
+            lightPropsGroup.position.z = Math.sin(time * 0.38 / 1000 + i * 80) * 4.5;
         });
         
         gBufferOpaqueMeshes.forEach((mesh) => {
