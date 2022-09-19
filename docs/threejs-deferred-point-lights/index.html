@@ -267,7 +267,6 @@ void main() {
     renderTarget.depthTexture = new THREE.DepthTexture();
     
     const scene = new THREE.Scene();
-    const sceneCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 50);
     
     const gBufferOpaqueMeshes = [];
     
@@ -320,81 +319,23 @@ void main() {
             gBufferOpaqueMeshes.push(mesh);
         });
         return root;
-
-        // const root = new THREE.Object3D();
-        // const createMesh = (scale, posV, degV) => {
-        //     const mesh = new THREE.Mesh(
-        //         new THREE.PlaneGeometry(scale, scale, 2, 2),
-        //         createGBufferLitMaterial(),
-        //         // createGBufferUnlitMaterial(),
-        //     );
-        //     root.add(mesh);
-        //     mesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
-        //     // mesh.rotation.copy();
-        //     mesh.rotation.x = (degV.x / 180) * Math.PI;
-        //     mesh.rotation.y = (degV.y / 180) * Math.PI;
-        //     mesh.rotation.z = (degV.z / 180) * Math.PI;
-        //     mesh.position.copy(posV);
-        //     gBufferOpaqueMeshes.push(mesh)
-        //     return mesh;
-        // }
-        // const scale = 10;
-        // createMesh(scale, new THREE.Vector3(0, scale / 2, 0), new THREE.Vector3(90, 0, 0)); // top
-        // createMesh(scale, new THREE.Vector3(0, -scale / 2, 0), new THREE.Vector3(-90, 0, 0)); // bottom
-        // createMesh(scale, new THREE.Vector3(-scale / 2, 0, 0), new THREE.Vector3(0, 90, 0)); // left
-        // createMesh(scale, new THREE.Vector3(scale / 2, 0, 0), new THREE.Vector3(0, -90, 0)); // right
-        // createMesh(scale, new THREE.Vector3(0, 0, scale / 2), new THREE.Vector3(0, 180, 0)); // front
-        // createMesh(scale, new THREE.Vector3(0, 0, -scale / 2), new THREE.Vector3(0, 0, 0)); // back
-        // return root;
     }
+
     const insideBoxMesh = createInsideBoxMesh();
     scene.add(insideBoxMesh);
     
-    // const skyboxMesh = new THREE.Mesh(
-    //     new THREE.SphereGeometry(2, 16, 16),
-    //     // new THREE.BoxGeometry(8, 8, 8),
-    //     createGBufferUnlitMaterial({ side: THREE.DoubleSide })
-    // );
-    // skyboxMesh.material.uniforms.uBaseColor.value = new THREE.Color(0, 0, 0);
-    // scene.add(skyboxMesh);
-
-    const debugMesh = new THREE.Mesh(
-        // new THREE.BoxGeometry(2, 2, 2),
+    const motifSphereMesh = new THREE.Mesh(
         new THREE.SphereGeometry(1, 32, 32),
-        // new THREE.TorusKnotGeometry( 1, 0.3, 128, 32 ),
-        // new THREE.TorusGeometry( 1, 0.3, 32, 32 ),
         createGBufferLitMaterial()
     );
-    debugMesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
-    debugMesh.position.y = 1.4;
-    // debugMesh.position.x = 0;
-    // debugMesh.position.y = 1;
-    // debugMesh.position.z = 0;
-    scene.add(debugMesh);
-    
-    gBufferOpaqueMeshes.push(debugMesh);
-    
-    // const floorMesh = new THREE.Mesh(
-    //     new THREE.PlaneGeometry(10, 10, 2, 2),
-    //     createGBufferLitMaterial({ side: THREE.DoubleSide })
-    // );
-    // floorMesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
-    // floorMesh.rotation.x = (-90 / 180) * Math.PI;
-    // scene.add(floorMesh);
-    // gBufferOpaqueMeshes.push(floorMesh);
+    motifSphereMesh.material.uniforms.uBaseColor.value = new THREE.Color(1, 1, 1);
+    motifSphereMesh.position.y = 1.4;
+    scene.add(motifSphereMesh);
+    gBufferOpaqueMeshes.push(motifSphereMesh);
 
-    // fake bg
-    const backgroundMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(100, 100, 2, 2),
-        // createGBufferUnlitMaterial({ side: THREE.DoubleSide })
-        createGBufferLitMaterial({ side: THREE.DoubleSide })
-    );
-    backgroundMesh.material.uniforms.uBaseColor.value = new THREE.Color(0, 0, 0);
-    scene.add(backgroundMesh);
-    gBufferOpaqueMeshes.push(backgroundMesh);
-
+    const sceneCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 50);
     sceneCamera.position.copy(new THREE.Vector3(3, 3, 7))
-    sceneCamera.lookAt(debugMesh.position);
+    sceneCamera.lookAt(motifSphereMesh.position);
 
     const orbitControls = new THREE.OrbitControls(sceneCamera, canvasElement);
     // orbitControls.enableZoom = false;
@@ -403,14 +344,8 @@ void main() {
         const lightPropsGroup = new THREE.Object3D();
 
         const color = (new THREE.Color()).setHSL(Math.random(), 1, 0.5);
-        // const color = (new THREE.Color(1, 0, 0))
-        // const color = new THREE.Color(1, 1, 1);
         const intensity = 0.8;
         const p = new THREE.Vector3().randomDirection().multiplyScalar(5);
-        // p.x = 2;
-        // p.y = 0.25;
-        // p.z = 2;
-        // lightProps.position.copy(new THREE.Vector3(3, 3, 0))
         lightPropsGroup.position.copy(p)
         lightPropsGroup.add(new THREE.PointLight(color, intensity, 100));
 
@@ -488,28 +423,17 @@ void main() {
     }
     
     const tick = (time) => {
-        debugMesh.rotation.x = time * 0.0001;
-        debugMesh.rotation.y = time * 0.0002;
-        debugMesh.rotation.z = time * 0.0003;
-       
         renderTarget.samples = 2;
 
         // ref: https://github.com/mrdoob/three.js/pull/24141
         // safari prior 15.5 needs the renderer to be cleared()
-        if ( renderTarget.samples > 0 ) {
+        if ( renderTarget.texture.length > 0 ) {
             renderer.clear();
         }
 
         orbitControls.update();
 
-        // const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.projectionMatrixInverse, sceneCamera.matrixWorldInverse);
-        const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(sceneCamera.matrixWorldInverse, sceneCamera.projectionMatrixInverse);
-     
         lightProps.forEach((lightPropsGroup, i) => {
-            // lightPropsGroup.position.y = Math.sin(time * 2 / 1000 + i * 100) * 0.6 + 0.7;
-            
-            // lightPropsGroup.position.y = Math.sin(time * 0.5 / 1000 + i * 100) * 4.5;
-            
             lightPropsGroup.position.x = Math.sin((time * 0.35 + i * 10) / 1000 + i * 40) * 4.5;
             lightPropsGroup.position.y = Math.sin((time * 0.52 + i * 20) / 1000 + i * 60) * 4.5;
             lightPropsGroup.position.z = Math.sin((time * 0.68 + i * 30) / 1000 + i * 80) * 4.5;
@@ -520,13 +444,6 @@ void main() {
             mesh.material.uniforms.uWorldNormalMatrix.value = (new THREE.Matrix3()).getNormalMatrix(mesh.matrixWorld);
         });
       
-        const p = (new THREE.Vector3()).addVectors(
-            sceneCamera.position.clone(),
-            sceneCamera.getWorldDirection(new THREE.Vector3()).multiplyScalar(sceneCamera.far - 0.001)
-        );
-        backgroundMesh.position.copy(p);
-        backgroundMesh.lookAt(sceneCamera.position);
-        
         const pointLights = [];
 
         scene.traverse(obj => {
@@ -542,7 +459,6 @@ void main() {
 
         postprocessMaterial.uniforms.uCameraNear.value = sceneCamera.near;
         postprocessMaterial.uniforms.uCameraFar.value = sceneCamera.far;
-        // postprocessMaterial.uniforms.uInverseViewMatrix.value = sceneCamera.matrixWorldInverse.clone();
         postprocessMaterial.uniforms.uInverseViewMatrix.value = sceneCamera.matrixWorld.clone();
         postprocessMaterial.uniforms.uInverseProjectionMatrix.value = sceneCamera.projectionMatrixInverse.clone();
         postprocessMaterial.uniforms.uPointLights.value = pointLights;
@@ -550,13 +466,11 @@ void main() {
             position: sceneCamera.getWorldPosition(new THREE.Vector3())
         }
 
-        // console.log("========")
-        // console.log(sceneCamera.matrixWorldInverse)
-        // console.log(sceneCamera.projectionMatrixInverse)
-        
+        // render GBuffer       
         renderer.setRenderTarget(renderTarget);
         renderer.render(scene, sceneCamera);
 
+        // render lighting
         renderer.setRenderTarget(null);
         renderer.render(postprocessScene, postprocessCamera);
 
